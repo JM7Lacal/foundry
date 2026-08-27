@@ -29,7 +29,10 @@ public class InspectorViewModelTests
         var (inspector, _) = LoadedTroop();
 
         inspector.HasEntity.Should().BeTrue();
-        inspector.Groups.Select(g => g.Name).Should().Contain(new[] { "General", "Combate", "Economia" });
+        var groupNames = inspector.Groups.Select(g => g.Name).ToList();
+        groupNames.Should().Contain("General");
+        groupNames.Should().Contain("Combate");
+        groupNames.Should().Contain("Economia");
         inspector.Groups.SelectMany(g => g.Fields).Should().Contain(f => f.Label == "Daño");
     }
 

@@ -42,7 +42,7 @@ public class EditableSchemaTests
     {
         var upgrade = EditableSchema.For(typeof(Troop)).Fields.Single(f => f.PropertyName == nameof(Troop.UpgradesInto));
 
-        upgrade.ReferenceTargetType.Should().Be(typeof(Troop));
+        upgrade.ReferenceTargetType.Should().Be<Troop>();
     }
 
     [Fact]

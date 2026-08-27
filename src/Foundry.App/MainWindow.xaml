@@ -57,6 +57,7 @@
 
             <GroupBox Grid.Column="0" Header="Contenido">
                 <TreeView ItemsSource="{Binding Categories}"
+                          behaviors:TreeViewSelectionBehavior.TrackSelection="True"
                           behaviors:TreeViewSelectionBehavior.SelectedItem="{Binding SelectedTreeItem, Mode=OneWayToSource}"
                           BorderThickness="0" />
             </GroupBox>

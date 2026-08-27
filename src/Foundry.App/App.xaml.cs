@@ -1,4 +1,5 @@
 using System.IO;
+using System.Text;
 using System.Windows;
 using System.Windows.Threading;
 using Foundry.App.Services;
@@ -15,15 +16,30 @@ namespace Foundry.App;
 /// </summary>
 public partial class App : System.Windows.Application
 {
-    private static readonly string CrashLogPath =
-        Path.Combine(Path.GetTempPath(), "foundry-crash.log");
-
     private IHost? _host;
 
     public App()
     {
-        DispatcherUnhandledException += OnDispatcherUnhandledException;
-        AppDomain.CurrentDomain.UnhandledException += OnAppDomainUnhandledException;
+        DispatcherUnhandledException += (_, e) =>
+        {
+            ReportFatal("Excepcion en la UI", e.Exception);
+            e.Handled = true;
+            Shutdown(-1);
+        };
+
+        AppDomain.CurrentDomain.UnhandledException += (_, e) =>
+        {
+            if (e.ExceptionObject is Exception ex)
+            {
+                ReportFatal("Excepcion no manejada", ex);
+            }
+        };
+
+        TaskScheduler.UnobservedTaskException += (_, e) =>
+        {
+            ReportFatal("Excepcion en una tarea", e.Exception);
+            e.SetObserved();
+        };
     }
 
     protected override void OnStartup(StartupEventArgs e)
@@ -83,38 +99,53 @@ public partial class App : System.Windows.Application
         }
     }
 
-    private void OnDispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
-    {
-        ReportFatal("Excepcion en la UI", e.Exception);
-        e.Handled = true;
-        Shutdown(-1);
-    }
-
-    private void OnAppDomainUnhandledException(object sender, UnhandledExceptionEventArgs e)
-    {
-        if (e.ExceptionObject is Exception ex)
-        {
-            ReportFatal("Excepcion no manejada", ex);
-        }
-    }
-
     private static void ReportFatal(string context, Exception exception)
     {
-        var message = $"{DateTimeOffset.Now:O}  {context}{Environment.NewLine}{exception}{Environment.NewLine}{new string('-', 60)}{Environment.NewLine}";
+        var text = new StringBuilder()
+            .Append(DateTimeOffset.Now.ToString("O"))
+            .Append("  ")
+            .AppendLine(context)
+            .AppendLine(exception.ToString())
+            .AppendLine(new string('-', 70))
+            .ToString();
+
+        var written = TryWrite(Path.Combine(Path.GetTempPath(), "foundry-crash.log"), text)
+                      || TryWrite(Path.Combine(AppContext.BaseDirectory, "foundry-crash.log"), text)
+                      || TryWrite(
+                          Path.Combine(
+                              Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory),
+                              "foundry-crash.log"),
+                          text);
 
         try
         {
-            File.AppendAllText(CrashLogPath, message);
+            MessageBox.Show(
+                $"{context}:\n\n{exception.GetType().Name}: {exception.Message}\n\n"
+                + (written ? "Detalle completo en foundry-crash.log" : text),
+                "Foundry",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
         }
-        catch (IOException)
+        catch (InvalidOperationException)
         {
-            // si no se puede escribir el log, al menos mostramos el cartel
+            // sin dispatcher disponible; el archivo de log ya tiene el detalle
         }
+    }
 
-        MessageBox.Show(
-            $"{context}:{Environment.NewLine}{Environment.NewLine}{exception.GetType().Name}: {exception.Message}{Environment.NewLine}{Environment.NewLine}Detalle en:{Environment.NewLine}{CrashLogPath}",
-            "Foundry",
-            MessageBoxButton.OK,
-            MessageBoxImage.Error);
+    private static bool TryWrite(string path, string text)
+    {
+        try
+        {
+            File.AppendAllText(path, text);
+            return true;
+        }
+        catch (Exception ex) when (ex is IOException
+                                      or UnauthorizedAccessException
+                                      or System.Security.SecurityException
+                                      or NotSupportedException
+                                      or ArgumentException)
+        {
+            return false;
+        }
     }
 }
