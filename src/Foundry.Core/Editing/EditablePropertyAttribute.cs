@@ -19,4 +19,11 @@ public sealed class EditablePropertyAttribute : Attribute
 
     /// <summary>Texto de ayuda opcional (tooltip).</summary>
     public string? Description { get; init; }
+
+    /// <summary>
+    /// El stat debe mejorar (o al menos mantenerse) a lo largo de una cadena de mejora: una
+    /// entidad no deberia superar en este valor a la que declara como "mejora a".
+    /// La validacion lo chequea (ver <c>ContentValidator</c>).
+    /// </summary>
+    public bool Progression { get; init; }
 }

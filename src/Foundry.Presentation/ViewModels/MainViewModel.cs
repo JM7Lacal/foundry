@@ -123,13 +123,15 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand(CanExecute = nameof(CanSave))]
     private async Task SaveAsync()
     {
-        var issues = _validator.Validate(_database);
-        if (issues.Count > 0)
+        var errors = _validator.Validate(_database)
+            .Where(issue => issue.Severity == ValidationSeverity.Error)
+            .ToList();
+        if (errors.Count > 0)
         {
-            StatusMessage = $"No se guardo: {issues.Count} problema(s) de validacion. Ej.: {issues[0]}";
+            StatusMessage = $"No se guardo: {errors.Count} error(es) de validacion. Ej.: {errors[0]}";
             _dialogs.Inform(
-                string.Join(Environment.NewLine, issues.Take(15).Select(issue => "• " + issue)),
-                $"{issues.Count} problema(s) de validacion");
+                string.Join(Environment.NewLine, errors.Take(15).Select(issue => "• " + issue)),
+                $"{errors.Count} error(es) de validacion");
             return;
         }
 
@@ -207,9 +209,12 @@ public partial class MainViewModel : ObservableObject
     private void Validate()
     {
         var issues = _validator.Validate(_database);
+        var errors = issues.Count(issue => issue.Severity == ValidationSeverity.Error);
+        var warnings = issues.Count - errors;
+
         StatusMessage = issues.Count == 0
             ? "Sin problemas de validacion."
-            : $"{issues.Count} problema(s) de validacion.";
+            : $"{errors} error(es), {warnings} aviso(s).";
         _dialogs.Inform(
             issues.Count == 0
                 ? "No se encontraron problemas."

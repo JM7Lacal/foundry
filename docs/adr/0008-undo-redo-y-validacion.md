@@ -31,13 +31,17 @@ antes de exportar al juego (un costo negativo o una referencia rota rompen el bu
 1. **Por campo, en vivo** (`INotifyDataErrorInfo` en `PropertyFieldViewModel`): rango
    (`[Range]`), requerido (`[Required]`), referencia rota. El binding usa
    `ValidatesOnNotifyDataErrors=True` → borde rojo + tooltip + texto de error bajo el campo.
-2. **De la base completa, al guardar** (`ContentValidator` en Application): recorre el
-   `EditableSchema` de cada entidad y aplica una **lista de reglas**
-   (`CheckRequired`, `CheckRange`, `CheckReference`). Devuelve `ValidationIssue`s. Si hay
-   problemas, `SaveAsync` **no guarda** y los lista.
+2. **De la base completa** (`ContentValidator` en Application): dos familias de reglas en lista —
+   **por campo** (`CheckRequired`, `CheckRange`, `CheckReference`) recorriendo el `EditableSchema`,
+   y **por entidad** (`CheckUpgradeChain`). Devuelve `ValidationIssue`s con `Severity`:
+   - **Error** (falta un requerido, fuera de rango, referencia rota, cadena circular): rompe el
+     parser del juego → `SaveAsync` **no guarda**.
+   - **Warning** (una entidad supera en un stat de `Progression` a la que declara como "mejora a"):
+     huele mal pero no rompe nada → se avisa, el guardado sigue.
 
-Las reglas son una lista justamente para que la idea futura de "coherencia de cadenas de mejora"
-(una entidad no puede superar en stats a la que mejora) sea una regla mas, sin tocar el motor.
+`CheckUpgradeChain` compara los campos marcados `[EditableProperty(Progression = true)]`
+(daño, vida, costo) contra los de la entidad referenciada, y detecta ciclos. Las reglas son
+listas: agregar una no toca `Validate`.
 
 ### Dirty tracking
 

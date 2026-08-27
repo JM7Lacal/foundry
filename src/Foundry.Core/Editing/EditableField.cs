@@ -39,6 +39,7 @@ public sealed class EditableField
         }
 
         IsRequired = property.GetCustomAttribute<RequiredAttribute>() is not null;
+        IsProgression = attribute.Progression;
     }
 
     public string Label { get; }
@@ -65,6 +66,9 @@ public sealed class EditableField
 
     /// <summary>La propiedad esta marcada con <see cref="RequiredAttribute"/>.</summary>
     public bool IsRequired { get; }
+
+    /// <summary>El stat debe mejorar (o mantenerse) a lo largo de la cadena de mejora.</summary>
+    public bool IsProgression { get; }
 
     public string PropertyName => _property.Name;
 

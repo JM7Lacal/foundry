@@ -59,4 +59,42 @@ public class ContentValidatorTests
 
         _validator.Validate(db).Should().BeEmpty();
     }
+
+    [Fact]
+    public void Flags_a_base_entity_that_out_stats_its_upgrade()
+    {
+        var db = new ContentDatabase();
+        db.Add(new Troop
+        {
+            Id = new EntityId("troop.militia"), Name = "Milicia",
+            Damage = 40, Health = 200, Cost = 90, UpgradesInto = new EntityId("troop.knight"),
+        });
+        db.Add(new Troop { Id = new EntityId("troop.knight"), Name = "Caballero", Damage = 30, Health = 300, Cost = 250 });
+
+        var issues = _validator.Validate(db);
+
+        issues.Should().Contain(i => i.EntityName == "Milicia" && i.Field == "Daño" && i.Message.Contains("supera a su mejora"));
+        issues.Should().NotContain(i => i.Field == "Vida"); // 200 <= 300, ok
+    }
+
+    [Fact]
+    public void A_monotonic_upgrade_chain_is_fine()
+    {
+        var db = new ContentDatabase();
+        db.Add(new Troop { Id = new EntityId("t.1"), Name = "T1", Damage = 10, Health = 100, Cost = 50, UpgradesInto = new EntityId("t.2") });
+        db.Add(new Troop { Id = new EntityId("t.2"), Name = "T2", Damage = 20, Health = 150, Cost = 120, UpgradesInto = new EntityId("t.3") });
+        db.Add(new Troop { Id = new EntityId("t.3"), Name = "T3", Damage = 35, Health = 220, Cost = 260 });
+
+        _validator.Validate(db).Should().BeEmpty();
+    }
+
+    [Fact]
+    public void Detects_a_circular_upgrade_chain()
+    {
+        var db = new ContentDatabase();
+        db.Add(new Troop { Id = new EntityId("a"), Name = "A", UpgradesInto = new EntityId("b") });
+        db.Add(new Troop { Id = new EntityId("b"), Name = "B", UpgradesInto = new EntityId("a") });
+
+        _validator.Validate(db).Should().Contain(i => i.Message.Contains("circular"));
+    }
 }

@@ -56,7 +56,7 @@
       "$type": "troop",
       "id": "troop.crossbowman",
       "name": "Ballestero",
-      "cost": 200,
+      "cost": 80,
       "damage": 30,
       "damageType": "siege",
       "attacksPerSecond": 0.9,

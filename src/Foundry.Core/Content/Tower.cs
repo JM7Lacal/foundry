@@ -8,7 +8,7 @@ public sealed class Tower : ContentEntity
 {
     public override string CategoryName => "Torres";
 
-    [EditableProperty(Label = "Costo", Group = "Economia", Order = 0)]
+    [EditableProperty(Label = "Costo", Group = "Economia", Order = 0, Progression = true)]
     [Range(0, 9999)]
     public int Cost { get; set; }
 
@@ -16,7 +16,7 @@ public sealed class Tower : ContentEntity
     [Range(0.0, 60.0)]
     public double BuildTimeSeconds { get; set; }
 
-    [EditableProperty(Label = "Daño", Group = "Combate", Order = 0)]
+    [EditableProperty(Label = "Daño", Group = "Combate", Order = 0, Progression = true)]
     [Range(0, 9999)]
     public int Damage { get; set; }
 
@@ -30,4 +30,9 @@ public sealed class Tower : ContentEntity
     [EditableProperty(Label = "Alcance", Group = "Combate", Order = 3)]
     [Range(1.0, 40.0)]
     public double AttackRange { get; set; } = 5.0;
+
+    [EditableProperty(Label = "Mejora a", Group = "Progresion", Order = 0,
+        Description = "Torre a la que asciende esta, si corresponde.")]
+    [AssetReference(typeof(Tower))]
+    public EntityId? UpgradesInto { get; set; }
 }

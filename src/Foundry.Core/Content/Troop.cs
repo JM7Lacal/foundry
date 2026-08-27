@@ -8,11 +8,11 @@ public sealed class Troop : ContentEntity
 {
     public override string CategoryName => "Tropas";
 
-    [EditableProperty(Label = "Costo", Group = "Economia", Order = 0)]
+    [EditableProperty(Label = "Costo", Group = "Economia", Order = 0, Progression = true)]
     [Range(0, 9999)]
     public int Cost { get; set; }
 
-    [EditableProperty(Label = "Daño", Group = "Combate", Order = 0)]
+    [EditableProperty(Label = "Daño", Group = "Combate", Order = 0, Progression = true)]
     [Range(0, 9999)]
     public int Damage { get; set; }
 
@@ -27,7 +27,7 @@ public sealed class Troop : ContentEntity
     [Range(0.5, 30.0)]
     public double AttackRange { get; set; } = 1.0;
 
-    [EditableProperty(Label = "Vida", Group = "Defensa", Order = 0)]
+    [EditableProperty(Label = "Vida", Group = "Defensa", Order = 0, Progression = true)]
     [Range(1, 99999)]
     public int Health { get; set; } = 1;
 
