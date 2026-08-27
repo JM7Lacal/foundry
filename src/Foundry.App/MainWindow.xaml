@@ -1,0 +1,61 @@
+<Window x:Class="Foundry.App.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:vm="clr-namespace:Foundry.App.ViewModels"
+        mc:Ignorable="d"
+        d:DataContext="{d:DesignInstance Type=vm:MainViewModel}"
+        Title="{Binding Title}"
+        Height="640" Width="1040"
+        WindowStartupLocation="CenterScreen">
+    <DockPanel>
+        <Menu DockPanel.Dock="Top">
+            <MenuItem Header="_Archivo">
+                <MenuItem Header="_Abrir..." InputGestureText="Ctrl+O" />
+                <MenuItem Header="_Guardar" InputGestureText="Ctrl+S" />
+                <Separator />
+                <MenuItem Header="_Salir" />
+            </MenuItem>
+            <MenuItem Header="_Editar">
+                <MenuItem Header="_Deshacer" InputGestureText="Ctrl+Z" />
+                <MenuItem Header="_Rehacer" InputGestureText="Ctrl+Y" />
+            </MenuItem>
+        </Menu>
+
+        <StatusBar DockPanel.Dock="Bottom">
+            <StatusBarItem Content="{Binding StatusMessage}" />
+        </StatusBar>
+
+        <Grid Margin="8">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="260" MinWidth="180" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" MinWidth="260" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="320" MinWidth="200" />
+            </Grid.ColumnDefinitions>
+
+            <GroupBox Grid.Column="0" Header="Contenido">
+                <TextBlock Margin="6" Opacity="0.6"
+                           Text="Arbol de entidades (Dia 1)" />
+            </GroupBox>
+
+            <GridSplitter Grid.Column="1" Width="6"
+                          HorizontalAlignment="Center" VerticalAlignment="Stretch" />
+
+            <GroupBox Grid.Column="2" Header="Inspector">
+                <TextBlock Margin="6" Opacity="0.6"
+                           Text="Editor de propiedades por reflexion (Dia 2)" />
+            </GroupBox>
+
+            <GridSplitter Grid.Column="3" Width="6"
+                          HorizontalAlignment="Center" VerticalAlignment="Stretch" />
+
+            <GroupBox Grid.Column="4" Header="Preview JSON">
+                <TextBlock Margin="6" Opacity="0.6"
+                           Text="Salida que consumiria el juego (Dia 2)" />
+            </GroupBox>
+        </Grid>
+    </DockPanel>
+</Window>

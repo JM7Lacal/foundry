@@ -1,0 +1,25 @@
+<Project>
+
+  <!-- Central Package Management: una sola fuente de verdad para las versiones de NuGet.
+       Los .csproj referencian los paquetes SIN Version=. -->
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageVersion Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+    <PackageVersion Include="Microsoft.Extensions.Hosting" Version="8.0.1" />
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="8.0.2" />
+  </ItemGroup>
+
+  <!-- Solo test -->
+  <ItemGroup>
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.8.0" />
+    <PackageVersion Include="xunit" Version="2.5.3" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="2.5.3" />
+    <PackageVersion Include="coverlet.collector" Version="6.0.0" />
+    <!-- FluentAssertions 8.x pasa a licencia comercial paga; 7.2.0 es la ultima libre. Ver docs/adr/0004. -->
+    <PackageVersion Include="FluentAssertions" Version="7.2.0" />
+  </ItemGroup>
+
+</Project>

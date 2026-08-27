@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Dominio puro: entidades de contenido, value objects, reglas.
+       Sin referencias a WPF, a JSON, ni al file system. No referencia ningun otro proyecto. -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>Foundry.Core</RootNamespace>
+  </PropertyGroup>
+
+</Project>
