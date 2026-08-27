@@ -151,6 +151,43 @@ public class MainViewModelTests
     }
 
     [Fact]
+    public async Task The_validation_panel_reflects_issues_after_an_edit()
+    {
+        var vm = await LoadedWithArcherSelected(SampleDatabase());
+        vm.ErrorCount.Should().Be(0);
+
+        DamageField(vm).Value = 999999; // fuera de rango -> error
+
+        vm.ErrorCount.Should().Be(1);
+        vm.ValidationIssues.Should().Contain(i => i.IsError && i.Text.Contains("Daño"));
+        vm.ValidationSummary.Should().Contain("1 error");
+    }
+
+    [Fact]
+    public async Task Save_opens_the_issues_panel_when_blocked()
+    {
+        var vm = await LoadedWithArcherSelected(SampleDatabase());
+        DamageField(vm).Value = 999999;
+
+        vm.SaveCommand.Execute(null);
+        await Task.Yield();
+
+        vm.IssuesPanelOpen.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task GoToIssue_selects_the_offending_entity()
+    {
+        var vm = await LoadedWithArcherSelected(SampleDatabase());
+        DamageField(vm).Value = 999999;
+        vm.SelectedTreeItem = null;
+
+        vm.GoToIssueCommand.Execute(vm.ValidationIssues.First());
+
+        vm.SelectedEntity!.Id.Should().Be(new EntityId("troop.archer"));
+    }
+
+    [Fact]
     public async Task SearchText_filters_the_tree()
     {
         var (vm, _) = Build(SampleDatabase());

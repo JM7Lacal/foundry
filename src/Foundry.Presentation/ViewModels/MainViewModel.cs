@@ -34,6 +34,15 @@ public partial class MainViewModel : ObservableObject
     private bool _treeIsEmpty = true;
 
     [ObservableProperty]
+    private int _errorCount;
+
+    [ObservableProperty]
+    private int _warningCount;
+
+    [ObservableProperty]
+    private bool _issuesPanelOpen;
+
+    [ObservableProperty]
     private string _jsonPreview = string.Empty;
 
     [ObservableProperty]
@@ -82,6 +91,12 @@ public partial class MainViewModel : ObservableObject
 
     public AssistantViewModel Assistant { get; }
 
+    public ObservableCollection<ValidationIssueViewModel> ValidationIssues { get; } = [];
+
+    public string ValidationSummary => ErrorCount == 0 && WarningCount == 0
+        ? "Validacion: sin problemas"
+        : $"Validacion: {ErrorCount} error(es) · {WarningCount} aviso(s)";
+
     /// <summary>Tipos de entidad para el menu "Nueva entidad". Se arma solo del catalogo.</summary>
     public IReadOnlyList<EntityTypeOption> EntityTypes { get; } = ContentEntityCatalog.Types
         .Select(type => new EntityTypeOption(
@@ -111,6 +126,7 @@ public partial class MainViewModel : ObservableObject
             CurrentFilePath = path;
             _undoStack.Clear();
             RebuildTree();
+            RefreshValidation();
             Assistant.SetContext(_database);
             IsDirty = false;
             StatusMessage = $"{_database.Count} entidades cargadas.";
@@ -142,15 +158,11 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand(CanExecute = nameof(CanSave))]
     private async Task SaveAsync()
     {
-        var errors = _validator.Validate(_database)
-            .Where(issue => issue.Severity == ValidationSeverity.Error)
-            .ToList();
-        if (errors.Count > 0)
+        RefreshValidation();
+        if (ErrorCount > 0)
         {
-            StatusMessage = $"No se guardo: {errors.Count} error(es) de validacion. Ej.: {errors[0]}";
-            _dialogs.Inform(
-                string.Join(Environment.NewLine, errors.Take(15).Select(issue => "• " + issue)),
-                $"{errors.Count} error(es) de validacion");
+            IssuesPanelOpen = true;
+            StatusMessage = $"No se guardo: {ErrorCount} error(es) de validacion (ver el panel de abajo).";
             return;
         }
 
@@ -272,6 +284,7 @@ public partial class MainViewModel : ObservableObject
 
             _undoStack.Clear();
             RebuildTree();
+            RefreshValidation();
             IsDirty = true;
             StatusMessage = $"Importadas {imported.Count} entidades ({replaced} reemplazadas). Guardá para confirmar.";
         }
@@ -287,18 +300,39 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     private void Validate()
     {
-        var issues = _validator.Validate(_database);
-        var errors = issues.Count(issue => issue.Severity == ValidationSeverity.Error);
-        var warnings = issues.Count - errors;
+        RefreshValidation();
+        IssuesPanelOpen = true;
+        StatusMessage = ValidationSummary;
+    }
 
-        StatusMessage = issues.Count == 0
-            ? "Sin problemas de validacion."
-            : $"{errors} error(es), {warnings} aviso(s).";
-        _dialogs.Inform(
-            issues.Count == 0
-                ? "No se encontraron problemas."
-                : string.Join(Environment.NewLine, issues.Select(issue => "• " + issue)),
-            "Validacion");
+    [RelayCommand]
+    private void GoToIssue(ValidationIssueViewModel? issue)
+    {
+        if (issue is null)
+        {
+            return;
+        }
+
+        SearchText = string.Empty;
+        SelectEntity(issue.EntityId);
+    }
+
+    private void RefreshValidation()
+    {
+        ValidationIssues.Clear();
+
+        var issues = _validator.Validate(_database)
+            .OrderBy(issue => issue.Severity)
+            .ToList();
+
+        foreach (var issue in issues)
+        {
+            ValidationIssues.Add(new ValidationIssueViewModel(issue));
+        }
+
+        ErrorCount = issues.Count(issue => issue.Severity == ValidationSeverity.Error);
+        WarningCount = issues.Count - ErrorCount;
+        OnPropertyChanged(nameof(ValidationSummary));
     }
 
     private bool CanSave() => _database.Count > 0;
@@ -381,6 +415,7 @@ public partial class MainViewModel : ObservableObject
 
         Inspector.RefreshValues();
         UpdatePreview();
+        RefreshValidation();
         (SelectedTreeItem as EntityNodeViewModel)?.Refresh();
 
         UndoCommand.NotifyCanExecuteChanged();

@@ -125,6 +125,44 @@
             </ToolBar>
         </ToolBarTray>
 
+        <Expander DockPanel.Dock="Bottom" IsExpanded="{Binding IssuesPanelOpen}"
+                  Background="{StaticResource SurfaceBrush}" BorderBrush="{StaticResource BorderBrush}"
+                  BorderThickness="0,1,0,0" Padding="10,4">
+            <Expander.Header>
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="&#xE9D5;" FontFamily="{StaticResource IconFont}" FontSize="13"
+                               Margin="0,0,8,0" VerticalAlignment="Center" Foreground="{StaticResource TextMutedBrush}" />
+                    <TextBlock Text="{Binding ValidationSummary}" VerticalAlignment="Center" />
+                </StackPanel>
+            </Expander.Header>
+            <ListBox ItemsSource="{Binding ValidationIssues}" MaxHeight="150" Margin="0,4,0,4"
+                     BorderThickness="0" Background="Transparent"
+                     ScrollViewer.HorizontalScrollBarVisibility="Auto">
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <Button HorizontalContentAlignment="Left" Background="Transparent"
+                                BorderThickness="0" Padding="2,1" Cursor="Hand"
+                                ToolTip="Ir a la entidad"
+                                Command="{Binding DataContext.GoToIssueCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                CommandParameter="{Binding}">
+                            <Button.Template>
+                                <ControlTemplate TargetType="Button">
+                                    <Border Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}">
+                                        <ContentPresenter />
+                                    </Border>
+                                </ControlTemplate>
+                            </Button.Template>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#x25CF;" FontSize="10" Margin="0,0,7,0" VerticalAlignment="Center"
+                                           Foreground="{Binding IsError, Converter={x:Static conv:IssueSeverityBrushConverter.Instance}}" />
+                                <TextBlock Text="{Binding Text}" />
+                            </StackPanel>
+                        </Button>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+        </Expander>
+
         <StatusBar DockPanel.Dock="Bottom">
             <StatusBarItem>
                 <TextBlock Text="{Binding StatusMessage}" />
