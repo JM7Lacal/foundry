@@ -107,6 +107,7 @@ Foundry.sln
 | [0009](docs/adr/0009-importadores.md) | `IContentImporter` + CSV dirigido por esquema |
 | [0010](docs/adr/0010-theming.md) | Pasada de diseño clara, sin tema oscuro |
 | [0011](docs/adr/0011-asistente-ia.md) | Asistente con IA: puerto `IChatCompletion` + proveedor elegido por config |
+| [0012](docs/adr/0012-proyecto-multi-archivo.md) | Un archivo por ahora; concepto de proyecto multi-archivo pendiente |
 
 ## El nucleo: el Inspector por reflexion
 
@@ -163,9 +164,16 @@ importador CSV **y el prompt del asistente** la reconocen por reflexion (`Conten
 
 ## Que haria despues
 
+- **Concepto de proyecto** ([ADR 0012](docs/adr/0012-proyecto-multi-archivo.md)): hoy se edita
+  **un archivo** = el contenido de un juego. Para varios juegos, o para contenido de un juego
+  partido en varios archivos (`troops.json`, `waves.json`, `liveops.json`), haria falta un
+  `game.foundryproj` (nombre + lista de archivos + settings) y un selector de proyectos recientes.
+  El cambio duro es que `MainViewModel` asume "un archivo abierto": guardar tiene que saber a que
+  archivo pertenece cada entidad.
+- **Lista de recientes** (paso previo, chico): menu *Archivo → Recientes*, cubre 2-10 juegos de
+  un archivo cada uno.
 - **Importacion CSV undoable**: reusar `AddEntitiesAction` (ya lo usa el asistente).
 - **Validacion del archivo entero siempre visible** (panel lateral), no solo al guardar / bajo menu.
-- **Editar mas de un archivo** (pestañas) y refactor de referencias entre archivos.
 - **Streaming** en el panel del asistente y few-shot examples en el prompt para mejorar el JSON
   de los modelos chicos.
 - **Fine-tuning** de un modelo local con el contenido ya balanceado del estudio (aprende las
