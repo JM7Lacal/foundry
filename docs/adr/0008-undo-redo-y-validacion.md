@@ -19,6 +19,10 @@ antes de exportar al juego (un costo negativo o una referencia rota rompen el bu
   pasa el `InspectorViewModel`, que hace `undoStack.Execute(new SetFieldValueAction(...))`.
 - El getter de cada campo **siempre lee de la entidad**, asi que tras un undo/redo alcanza con
   refrescar los bindings (`RefreshFromModel`) para que la UI muestre el valor revertido.
+- **Coalescing**: `IUndoableAction.TryCoalesceWith` deja que una accion absorba a la siguiente si
+  son la misma operacion en rafaga. `SetFieldValueAction` fusiona ediciones al mismo campo de la
+  misma entidad dentro de una ventana de 700 ms (arrastrar un deslizador = un solo paso de undo,
+  no cincuenta). Los sliders ademas usan `Binding Delay=200` para no escribir en cada pixel.
 - `MainViewModel` expone `UndoCommand` / `RedoCommand` (Ctrl+Z / Ctrl+Y, menu Editar), con
   `CanExecute` atado a `UndoStack.CanUndo/CanRedo`.
 

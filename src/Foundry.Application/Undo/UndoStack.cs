@@ -11,11 +11,20 @@ public interface IUndoableAction
     void Apply();
 
     void Revert();
+
+    /// <summary>
+    /// Intenta absorber una accion inmediatamente posterior (misma operacion, en rafaga — p. ej.
+    /// arrastrar un deslizador). Si devuelve <c>true</c>, <paramref name="newer"/> no se apila:
+    /// esta accion actualiza su "valor nuevo" conservando el "valor viejo" original.
+    /// </summary>
+    bool TryCoalesceWith(IUndoableAction newer) => false;
 }
 
 /// <summary>
 /// Pila de undo/redo. <see cref="Execute"/> corre la accion y la apila; <see cref="Undo"/> la
 /// revierte y la mueve a la pila de redo; un <see cref="Execute"/> nuevo limpia el redo.
+/// Acciones consecutivas del mismo tipo que aceptan fusionarse (<see cref="IUndoableAction.TryCoalesceWith"/>)
+/// cuentan como un solo paso de undo.
 /// </summary>
 public sealed class UndoStack
 {
@@ -34,7 +43,12 @@ public sealed class UndoStack
         ArgumentNullException.ThrowIfNull(action);
 
         action.Apply();
-        _undo.Push(action);
+
+        if (_undo.Count == 0 || !_undo.Peek().TryCoalesceWith(action))
+        {
+            _undo.Push(action);
+        }
+
         _redo.Clear();
         RaiseChanged();
     }

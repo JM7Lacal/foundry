@@ -45,7 +45,7 @@
                          Text="{Binding Value, UpdateSourceTrigger=LostFocus, ValidatesOnNotifyDataErrors=True}" />
                 <Slider VerticalAlignment="Center"
                         Minimum="{Binding Minimum}" Maximum="{Binding Maximum}"
-                        Value="{Binding Value}"
+                        Value="{Binding Value, Delay=200}"
                         IsSnapToTickEnabled="True" TickFrequency="1"
                         Visibility="{Binding HasRange, Converter={x:Static conv:BooleanToVisibilityConverter.VisibleWhenTrue}}" />
             </DockPanel>
@@ -57,7 +57,7 @@
                          Text="{Binding Value, UpdateSourceTrigger=LostFocus, StringFormat=0.###, ValidatesOnNotifyDataErrors=True}" />
                 <Slider VerticalAlignment="Center"
                         Minimum="{Binding Minimum}" Maximum="{Binding Maximum}"
-                        Value="{Binding Value}"
+                        Value="{Binding Value, Delay=200}"
                         Visibility="{Binding HasRange, Converter={x:Static conv:BooleanToVisibilityConverter.VisibleWhenTrue}}" />
             </DockPanel>
         </DataTemplate>
