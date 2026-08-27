@@ -1,3 +1,4 @@
+using Foundry.Application.Ai;
 using Foundry.Application.Undo;
 using Foundry.Application.Validation;
 
@@ -14,6 +15,7 @@ public static class FoundryApplicationServiceCollectionExtensions
 
         services.AddSingleton<UndoStack>();
         services.AddSingleton<ContentValidator>();
+        services.AddSingleton<ContentAssistant>();
 
         return services;
     }

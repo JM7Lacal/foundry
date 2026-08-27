@@ -84,16 +84,21 @@
             <GridSplitter Grid.Column="3" Width="6"
                           HorizontalAlignment="Center" VerticalAlignment="Stretch" />
 
-            <GroupBox Grid.Column="4" Header="Preview JSON">
-                <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
-                    <TextBox Text="{Binding JsonPreview, Mode=OneWay}"
-                             IsReadOnly="True" BorderThickness="0"
-                             FontFamily="Consolas, Cascadia Mono, monospace"
-                             TextWrapping="NoWrap"
-                             VerticalScrollBarVisibility="Disabled"
-                             HorizontalScrollBarVisibility="Disabled" />
-                </ScrollViewer>
-            </GroupBox>
+            <TabControl Grid.Column="4">
+                <TabItem Header="Preview JSON">
+                    <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+                        <TextBox Text="{Binding JsonPreview, Mode=OneWay}"
+                                 IsReadOnly="True" BorderThickness="0"
+                                 FontFamily="Consolas, Cascadia Mono, monospace"
+                                 TextWrapping="NoWrap"
+                                 VerticalScrollBarVisibility="Disabled"
+                                 HorizontalScrollBarVisibility="Disabled" />
+                    </ScrollViewer>
+                </TabItem>
+                <TabItem Header="Asistente">
+                    <views:AssistantView DataContext="{Binding Assistant}" />
+                </TabItem>
+            </TabControl>
         </Grid>
     </DockPanel>
 </Window>

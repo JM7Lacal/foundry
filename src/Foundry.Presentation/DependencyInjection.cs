@@ -10,6 +10,7 @@ public static class FoundryPresentationServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(services);
 
         services.AddSingleton<InspectorViewModel>();
+        services.AddSingleton<AssistantViewModel>();
         services.AddSingleton<MainViewModel>();
 
         return services;

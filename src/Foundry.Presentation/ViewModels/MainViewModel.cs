@@ -26,6 +26,7 @@ public partial class MainViewModel : ObservableObject
     private readonly ContentValidator _validator;
 
     private ContentDatabase _database = new();
+    private int _treeEntityCount;
 
     [ObservableProperty]
     private string _jsonPreview = string.Empty;
@@ -53,7 +54,8 @@ public partial class MainViewModel : ObservableObject
         IDialogService dialogs,
         UndoStack undoStack,
         ContentValidator validator,
-        InspectorViewModel inspector)
+        InspectorViewModel inspector,
+        AssistantViewModel assistant)
     {
         _repository = repository;
         _serializer = serializer;
@@ -63,13 +65,17 @@ public partial class MainViewModel : ObservableObject
         _undoStack = undoStack;
         _validator = validator;
         Inspector = inspector;
+        Assistant = assistant;
 
         _undoStack.Changed += OnUndoStackChanged;
+        Assistant.ProposalApplied += OnAssistantProposalApplied;
     }
 
     public ObservableCollection<ContentCategoryViewModel> Categories { get; } = [];
 
     public InspectorViewModel Inspector { get; }
+
+    public AssistantViewModel Assistant { get; }
 
     public string Title
     {
@@ -93,6 +99,7 @@ public partial class MainViewModel : ObservableObject
             CurrentFilePath = path;
             _undoStack.Clear();
             RebuildTree();
+            Assistant.SetContext(_database);
             IsDirty = false;
             StatusMessage = $"{_database.Count} entidades cargadas.";
         }
@@ -241,11 +248,29 @@ public partial class MainViewModel : ObservableObject
 
     partial void OnSearchTextChanged(string value) => RebuildTree();
 
+    private void OnAssistantProposalApplied(object? sender, EventArgs e)
+    {
+        var proposal = Assistant.Proposal;
+        if (proposal.Count == 0)
+        {
+            return;
+        }
+
+        _undoStack.Execute(new AddEntitiesAction(_database, proposal));
+        RebuildTree();
+        StatusMessage = $"Agregadas {proposal.Count} entidad(es) desde el asistente. Guardá para confirmar.";
+    }
+
     private void OnUndoStackChanged(object? sender, EventArgs e)
     {
         if (_undoStack.CanUndo || _undoStack.CanRedo)
         {
             IsDirty = true;
+        }
+
+        if (_database.Count != _treeEntityCount)
+        {
+            RebuildTree(); // una accion cambio la cantidad de entidades (agregar/quitar por undo/redo)
         }
 
         Inspector.RefreshValues();
@@ -264,6 +289,7 @@ public partial class MainViewModel : ObservableObject
     private void RebuildTree()
     {
         Categories.Clear();
+        _treeEntityCount = _database.Count;
 
         var filter = SearchText.Trim();
         var groups = _database.All

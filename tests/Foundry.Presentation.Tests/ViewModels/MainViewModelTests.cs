@@ -1,4 +1,5 @@
 using FluentAssertions;
+using Foundry.Application.Ai;
 using Foundry.Application.Content;
 using Foundry.Application.Editing;
 using Foundry.Application.Undo;
@@ -16,15 +17,17 @@ public class MainViewModelTests
     {
         var undo = new UndoStack();
         var repo = new RecordingRepository(database);
+        var serializer = new StubSerializer();
         var vm = new MainViewModel(
             repo,
-            new StubSerializer(),
+            serializer,
             new StubImporter(),
             new StubFilePicker(),
             new StubDialogService(),
             undo,
             new ContentValidator(),
-            new InspectorViewModel(undo));
+            new InspectorViewModel(undo),
+            new AssistantViewModel(new ContentAssistant(new FakeChat(), serializer)));
         return (vm, repo);
     }
 
@@ -153,6 +156,16 @@ public class MainViewModelTests
     private sealed class StubSerializer : IContentSerializer
     {
         public string SerializeEntity(ContentEntity entity) => "<json>";
+
+        public IReadOnlyList<ContentEntity> DeserializeEntities(string json) => Array.Empty<ContentEntity>();
+    }
+
+    private sealed class FakeChat : IChatCompletion
+    {
+        public string Name => "fake";
+
+        public Task<string> CompleteAsync(IReadOnlyList<ChatMessage> messages, CancellationToken cancellationToken = default)
+            => Task.FromResult("""{ "answer": "ok" }""");
     }
 
     private sealed class StubImporter : IContentImporter

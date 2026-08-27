@@ -3,8 +3,12 @@ using System.Text;
 using System.Windows;
 using System.Windows.Threading;
 using Foundry.App.Services;
+using Foundry.Application.Ai;
+using Foundry.Infrastructure.Ai;
 using Foundry.Presentation.Services;
 using Foundry.Presentation.ViewModels;
+using System.Net.Http;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
@@ -71,7 +75,10 @@ public partial class App : System.Windows.Application
     private void Bootstrap()
     {
         _host = Host.CreateDefaultBuilder()
-            .ConfigureServices((_, services) =>
+            .ConfigureAppConfiguration(builder => builder
+                .SetBasePath(AppContext.BaseDirectory)
+                .AddJsonFile("appsettings.json", optional: true))
+            .ConfigureServices((context, services) =>
             {
                 services.AddFoundryApplication();
                 services.AddFoundryInfrastructure();
@@ -80,6 +87,8 @@ public partial class App : System.Windows.Application
                 services.AddSingleton<IFilePicker, WpfFilePicker>();
                 services.AddSingleton<IDialogService, WpfDialogService>();
                 services.AddSingleton<MainWindow>();
+
+                RegisterAssistantProvider(context.Configuration, services);
             })
             .Build();
 
@@ -87,6 +96,46 @@ public partial class App : System.Windows.Application
         _host.Services.GetRequiredService<MainWindow>().Show();
 
         _ = LoadBundledSampleAsync();
+    }
+
+    /// <summary>
+    /// El unico lugar donde se elige el modelo del asistente. Se puede cambiar por config
+    /// (<c>appsettings.json</c> → <c>Assistant:Provider</c>) sin recompilar.
+    /// </summary>
+    private static void RegisterAssistantProvider(IConfiguration configuration, IServiceCollection services)
+    {
+        var provider = configuration["Assistant:Provider"] ?? "stub";
+        var model = configuration["Assistant:Model"];
+        var apiKey = configuration["Assistant:ApiKey"] ?? string.Empty;
+
+        switch (provider.Trim().ToLowerInvariant())
+        {
+            case "claude-code":
+            case "claudecode":
+                services.AddSingleton<IChatCompletion, ClaudeCodeChatCompletion>();
+                break;
+
+            case "ollama":
+                services.AddHttpClient();
+                services.AddSingleton<IChatCompletion>(sp =>
+                    new OllamaChatCompletion(
+                        sp.GetRequiredService<IHttpClientFactory>().CreateClient(),
+                        model ?? "qwen2.5"));
+                break;
+
+            case "anthropic":
+                services.AddHttpClient();
+                services.AddSingleton<IChatCompletion>(sp =>
+                    new AnthropicChatCompletion(
+                        sp.GetRequiredService<IHttpClientFactory>().CreateClient(),
+                        apiKey,
+                        model ?? "claude-haiku-4-5-20251001"));
+                break;
+
+            default:
+                services.AddSingleton<IChatCompletion, StubChatCompletion>();
+                break;
+        }
     }
 
     /// <summary>Carga el archivo de ejemplo que se copia junto al ejecutable, si existe.</summary>

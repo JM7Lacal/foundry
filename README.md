@@ -16,8 +16,8 @@ tocar el engine.
 | | |
 |---|---|
 | Build | `dotnet build` — OK, 0 warnings |
-| Tests | `dotnet test` — 56/56 |
-| Fase | Dias 0–4 completos. |
+| Tests | `dotnet test` — 70/70 |
+| Fase | Dias 0–4 + coherencia de cadenas de mejora + asistente con IA. |
 
 ## Correr
 
@@ -46,6 +46,11 @@ tener algo que mostrar; hay tambien un
 - **"Usado por"**: quien referencia la entidad seleccionada, antes de borrar o renombrar.
 - **Importar CSV**: trae entidades desde una planilla, mapeando columnas al esquema.
 - **Cambios sin guardar**: `*` en el titulo y prompt al abrir otro archivo o cerrar.
+- **Coherencia de cadenas de mejora**: una entidad no puede superar en daño/vida/costo a la que
+  declara como "mejora a" (aviso, no bloquea); detecta ciclos.
+- **Panel asistente**: pedís en lenguaje natural, el modelo propone entidades (revisás y aplicás,
+  con undo) o responde. Proveedor intercambiable por config — ver
+  [ADR 0011](docs/adr/0011-asistente-ia.md).
 
 ## Arquitectura
 
@@ -54,7 +59,7 @@ flowchart LR
     App["Foundry.App\n(WPF: Views, Converters, Behaviors,\nWpfFilePicker, composition root)"]
     Pres["Foundry.Presentation\n(ViewModels, IFilePicker)\nsin WPF"]
     Infra["Foundry.Infrastructure\n(JSON repo/serializer, CSV importer)"]
-    Appl["Foundry.Application\n(puertos: IContentRepository, IContentImporter,\nUndoStack, ContentValidator)"]
+    Appl["Foundry.Application\n(puertos: IContentRepository, IContentImporter, IChatCompletion,\nUndoStack, ContentValidator, ContentAssistant)"]
     Core["Foundry.Core\n(entidades, value objects,\nEditableSchema, ReferenceGraph)"]
 
     App --> Pres
@@ -77,10 +82,13 @@ Foundry.sln
 │   ├── Foundry.Core            Dominio: ContentEntity + Troop/Tower/Enemy, EntityId,
 │   │                           EditableSchema (reflexion), ReferenceGraph, ContentEntityCatalog.
 │   ├── Foundry.Application     Puertos y casos de uso: IContentRepository, IContentSerializer,
-│   │                           IContentImporter, UndoStack, SetFieldValueAction, ContentValidator.
-│   ├── Foundry.Infrastructure  JsonContentRepository/Serializer (polimorficos), CsvContentImporter.
-│   ├── Foundry.Presentation    MainViewModel, InspectorViewModel, PropertyFieldViewModel+subtipos.
-│   └── Foundry.App             MainWindow, InspectorView, converters, behaviors, tema, App.xaml.cs.
+│   │                           IContentImporter, IChatCompletion, ContentAssistant, ContentValidator,
+│   │                           UndoStack + acciones (SetFieldValue, AddEntities).
+│   ├── Foundry.Infrastructure  JSON repo/serializer (polimorficos), CsvContentImporter,
+│   │                           proveedores IChatCompletion (stub / anthropic / ollama / claude-code).
+│   ├── Foundry.Presentation    MainViewModel, InspectorViewModel, AssistantViewModel, field VMs.
+│   └── Foundry.App             MainWindow, InspectorView, AssistantView, converters, behaviors,
+│                               tema, appsettings.json, App.xaml.cs (elige el proveedor de IA).
 └── tests/                      Core / Application / Infrastructure / Presentation .Tests
 ```
 
@@ -98,6 +106,7 @@ Foundry.sln
 | [0008](docs/adr/0008-undo-redo-y-validacion.md) | Undo/redo (command pattern) y validacion en dos capas |
 | [0009](docs/adr/0009-importadores.md) | `IContentImporter` + CSV dirigido por esquema |
 | [0010](docs/adr/0010-theming.md) | Pasada de diseño clara, sin tema oscuro |
+| [0011](docs/adr/0011-asistente-ia.md) | Asistente con IA: puerto `IChatCompletion` + proveedor elegido por config |
 
 ## El nucleo: el Inspector por reflexion
 
@@ -125,19 +134,19 @@ crea un `PropertyFieldViewModel` por campo. Cada subtipo tiene su `DataTemplate`
 2. `override CategoryName => "Trampas";`
 3. Anotar sus propiedades con `[EditableProperty]` / `[Range]` / `[AssetReference]`.
 
-Eso es todo. El arbol la agrupa, el Inspector le arma el formulario, la serializacion JSON y el
-importador CSV la reconocen por reflexion (`ContentEntityCatalog`). **Cero UI, cero
-serializacion, cero registro manual.**
+Eso es todo. El arbol la agrupa, el Inspector le arma el formulario, la serializacion JSON, el
+importador CSV **y el prompt del asistente** la reconocen por reflexion (`ContentEntityCatalog`
++ `SchemaDescription`). **Cero UI, cero serializacion, cero registro manual.**
 
 ## Testing
 
-`xUnit` + `FluentAssertions`. 56 tests.
+`xUnit` + `FluentAssertions`. 70 tests.
 
 | Proyecto | Cubre |
 |---|---|
 | Core | `EntityId`, `ContentDatabase`, `EditableSchema` (inferencia de `FieldKind`, rango, referencias, cache), `ReferenceGraph` (referrers / links rotos) |
 | Application | `UndoStack`, `SetFieldValueAction`, `ContentValidator` (rango / requerido / referencia rota) |
-| Infrastructure | round-trip JSON, polimorfismo `$type`, tipo desconocido, importador CSV (mapeo por nombre/etiqueta, comillas, errores con linea) |
+| Infrastructure | round-trip JSON, polimorfismo `$type`, tipo desconocido, importador CSV (mapeo por nombre/etiqueta, comillas, errores con linea), `ContentAssistant` (parseo de respuestas, fences, entidades invalidas) |
 | Presentation | `InspectorViewModel`, `MainViewModel` (arbol, seleccion, dirty, save bloqueado, undo/redo, filtro). Sin runner de WPF gracias al split de assemblies |
 
 ## Fuera de alcance (a proposito)
@@ -154,11 +163,11 @@ serializacion, cero registro manual.**
 
 ## Que haria despues
 
-- **Coherencia de cadenas de mejora**: una regla mas en `ContentValidator` — una entidad no puede
-  superar en stats a la que declara como `UpgradesInto`. La lista de reglas ya esta preparada.
-- **Importacion undoable**: modelar el import como `IUndoableAction` de lote.
-- **Validacion del archivo entero visible siempre** (panel lateral), no solo al guardar.
+- **Importacion CSV undoable**: reusar `AddEntitiesAction` (ya lo usa el asistente).
+- **Validacion del archivo entero siempre visible** (panel lateral), no solo al guardar / bajo menu.
 - **Editar mas de un archivo** (pestañas) y refactor de referencias entre archivos.
-- **Panel asistente con IA** (`IContentAssistant`, provider intercambiable: modelo local por
-  defecto): generar entidades desde lenguaje natural y chequeos de balance.
+- **Streaming** en el panel del asistente y few-shot examples en el prompt para mejorar el JSON
+  de los modelos chicos.
+- **Fine-tuning** de un modelo local con el contenido ya balanceado del estudio (aprende las
+  convenciones de costos/stats por tier).
 - **Empaquetado**: MSIX + auto-update para distribuir la herramienta al equipo.
