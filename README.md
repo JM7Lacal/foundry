@@ -16,8 +16,8 @@ tocar el engine.
 | | |
 |---|---|
 | Build | `dotnet build` — OK |
-| Tests | `dotnet test` — 9/9 |
-| Fase | Dia 0 (esqueleto) completo. Ver [Roadmap](#roadmap). |
+| Tests | `dotnet test` — 18/18 |
+| Fase | Dia 1 completo (dominio + persistencia + arbol). Ver [Roadmap](#roadmap). |
 
 ## Correr
 
@@ -27,8 +27,12 @@ dotnet test
 dotnet run --project src/Foundry.App
 ```
 
-Requiere el **.NET 8 SDK**. Para desarrollo se recomienda Visual Studio 2022 con el workload
-".NET desktop development" (diseñador XAML, Live Visual Tree).
+Al arrancar carga un archivo de contenido de ejemplo
+([`Samples/tower-defense.json`](src/Foundry.App/Samples/tower-defense.json)) para tener algo que
+mostrar sin abrir un archivo a mano.
+
+Requiere el **.NET 8 SDK**. Para desarrollo se recomienda Visual Studio 2026 Community con el
+workload ".NET desktop development" (diseñador XAML, Live Visual Tree).
 
 ## Estructura de la solucion
 
@@ -38,12 +42,13 @@ Foundry.sln
 │   ├── Foundry.Core            Dominio puro: entidades de contenido, value objects, reglas.
 │   │                           Sin WPF, sin JSON, sin file system. No referencia a nadie.
 │   ├── Foundry.Application     Casos de uso + abstracciones (puertos): IContentRepository,
-│   │                           IContentImporter, UndoStack. Define QUE, no COMO.
-│   ├── Foundry.Infrastructure  Implementaciones: repositorio JSON, importadores, disco.
+│   │                           UndoStack. Define QUE, no COMO.
+│   ├── Foundry.Infrastructure  Implementaciones: repositorio JSON (polimorfico), disco.
 │   └── Foundry.App             WPF: Views (XAML), ViewModels, composition root (App.xaml.cs).
 └── tests/
     ├── Foundry.Core.Tests
-    └── Foundry.Application.Tests
+    ├── Foundry.Application.Tests
+    └── Foundry.Infrastructure.Tests
 ```
 
 ## Arquitectura
@@ -70,6 +75,7 @@ Decisiones clave, cada una con su ADR:
 | [0003](docs/adr/0003-composicion-generic-host-di.md) | Composicion con Generic Host + `Microsoft.Extensions.DependencyInjection` |
 | [0004](docs/adr/0004-fluentassertions-7.md) | `FluentAssertions` fijado en 7.2.0 (8.x pasa a licencia paga) |
 | [0005](docs/adr/0005-tooling-cpm-analyzers.md) | Central Package Management + analyzers + warnings como errores |
+| [0006](docs/adr/0006-json-polimorfico-dominio-limpio.md) | JSON polimorfico sin ensuciar el dominio con atributos de serializacion |
 
 ## El nucleo: el Inspector (Dia 2)
 
@@ -77,13 +83,13 @@ El diferenciador tecnico del proyecto. En lugar de escribir un formulario por ti
 las entidades se decoran con atributos:
 
 ```csharp
-[EditableProperty(Label = "Daño base", Group = "Combate", Order = 10)]
-[Range(0, 999)]
-public int BaseDamage { get; set; }
+[EditableProperty(Label = "Daño", Group = "Combate", Order = 0)]
+[Range(0, 9999)]
+public int Damage { get; set; }
 
-[EditableProperty(Group = "Loot")]
-[AssetReference(typeof(LootTable))]
-public string LootTableId { get; set; }
+[EditableProperty(Label = "Mejora a", Group = "Progresion")]
+[AssetReference(typeof(Troop))]
+public EntityId? UpgradesInto { get; set; }
 ```
 
 `InspectorViewModel` reflexiona sobre la entidad seleccionada y construye una lista de
@@ -99,7 +105,7 @@ del Inspector de Unity / el Details de Unreal.
 | Dia | Entregable |
 |---|---|
 | **0** ✅ | Solucion, 4 proyectos + tests, DI/host, ventana shell, build+test verde, tooling |
-| **1** | Entidades de dominio + atributos · `ContentDatabase` · repositorio JSON async · `TreeView` de contenido |
+| **1** ✅ | Entidades (`Troop`/`Tower`/`Enemy`) + atributos de edicion · `ContentDatabase` · repositorio JSON async y polimorfico · `TreeView` de contenido con seleccion → Inspector |
 | **2** | Inspector por reflexion · `DataTemplateSelector` por tipo de campo · preview JSON en vivo |
 | **3** | Undo/redo sobre todas las ediciones · validacion `INotifyDataErrorInfo` · dirty tracking · atajos |
 | **4** | Tema oscuro · busqueda en el arbol · `IContentImporter` (CSV) · "find usages" de referencias · ADRs finales |

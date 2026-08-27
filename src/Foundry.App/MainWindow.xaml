@@ -4,22 +4,41 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:vm="clr-namespace:Foundry.App.ViewModels"
+        xmlns:behaviors="clr-namespace:Foundry.App.Behaviors"
+        xmlns:conv="clr-namespace:Foundry.App.Converters"
         mc:Ignorable="d"
         d:DataContext="{d:DesignInstance Type=vm:MainViewModel}"
         Title="{Binding Title}"
         Height="640" Width="1040"
         WindowStartupLocation="CenterScreen">
+
+    <Window.Resources>
+        <HierarchicalDataTemplate DataType="{x:Type vm:ContentCategoryViewModel}"
+                                  ItemsSource="{Binding Entities}">
+            <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
+        </HierarchicalDataTemplate>
+
+        <DataTemplate DataType="{x:Type vm:EntityNodeViewModel}">
+            <TextBlock Text="{Binding DisplayName}" />
+        </DataTemplate>
+    </Window.Resources>
+
+    <Window.InputBindings>
+        <KeyBinding Modifiers="Control" Key="O" Command="{Binding OpenCommand}" />
+        <KeyBinding Modifiers="Control" Key="S" Command="{Binding SaveCommand}" />
+    </Window.InputBindings>
+
     <DockPanel>
         <Menu DockPanel.Dock="Top">
             <MenuItem Header="_Archivo">
-                <MenuItem Header="_Abrir..." InputGestureText="Ctrl+O" />
-                <MenuItem Header="_Guardar" InputGestureText="Ctrl+S" />
+                <MenuItem Header="_Abrir..." InputGestureText="Ctrl+O" Command="{Binding OpenCommand}" />
+                <MenuItem Header="_Guardar" InputGestureText="Ctrl+S" Command="{Binding SaveCommand}" />
                 <Separator />
-                <MenuItem Header="_Salir" />
+                <MenuItem Header="_Salir" Click="OnExitClick" />
             </MenuItem>
             <MenuItem Header="_Editar">
-                <MenuItem Header="_Deshacer" InputGestureText="Ctrl+Z" />
-                <MenuItem Header="_Rehacer" InputGestureText="Ctrl+Y" />
+                <MenuItem Header="_Deshacer" InputGestureText="Ctrl+Z" IsEnabled="False" />
+                <MenuItem Header="_Rehacer" InputGestureText="Ctrl+Y" IsEnabled="False" />
             </MenuItem>
         </Menu>
 
@@ -29,7 +48,7 @@
 
         <Grid Margin="8">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="260" MinWidth="180" />
+                <ColumnDefinition Width="280" MinWidth="200" />
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" MinWidth="260" />
                 <ColumnDefinition Width="Auto" />
@@ -37,16 +56,30 @@
             </Grid.ColumnDefinitions>
 
             <GroupBox Grid.Column="0" Header="Contenido">
-                <TextBlock Margin="6" Opacity="0.6"
-                           Text="Arbol de entidades (Dia 1)" />
+                <TreeView ItemsSource="{Binding Categories}"
+                          behaviors:TreeViewSelectionBehavior.SelectedItem="{Binding SelectedTreeItem, Mode=OneWayToSource}"
+                          BorderThickness="0" />
             </GroupBox>
 
             <GridSplitter Grid.Column="1" Width="6"
                           HorizontalAlignment="Center" VerticalAlignment="Stretch" />
 
             <GroupBox Grid.Column="2" Header="Inspector">
-                <TextBlock Margin="6" Opacity="0.6"
-                           Text="Editor de propiedades por reflexion (Dia 2)" />
+                <Grid>
+                    <TextBlock Margin="6" Opacity="0.6"
+                               Text="Seleccioná una entidad en el arbol."
+                               Visibility="{Binding SelectedEntity, Converter={x:Static conv:NullToVisibilityConverter.CollapsedWhenNotNull}}" />
+
+                    <StackPanel Margin="6"
+                                Visibility="{Binding SelectedEntity, Converter={x:Static conv:NullToVisibilityConverter.CollapsedWhenNull}}">
+                        <TextBlock Text="{Binding SelectedEntity.CategoryName}" FontWeight="SemiBold" />
+                        <TextBlock Text="{Binding SelectedEntity.Name}" FontSize="16" Margin="0,2,0,8" />
+                        <TextBlock Text="{Binding SelectedEntity.Id}" Opacity="0.6" />
+                        <TextBlock Margin="0,16,0,0" Opacity="0.6"
+                                   TextWrapping="Wrap"
+                                   Text="El editor de propiedades por reflexion se agrega en el Dia 2." />
+                    </StackPanel>
+                </Grid>
             </GroupBox>
 
             <GridSplitter Grid.Column="3" Width="6"

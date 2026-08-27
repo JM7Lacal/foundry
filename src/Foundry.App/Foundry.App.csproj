@@ -21,4 +21,11 @@
     <ProjectReference Include="..\Foundry.Core\Foundry.Core.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Contenido de ejemplo que se carga al arrancar; se copia junto al ejecutable. -->
+    <None Update="Samples\tower-defense.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
 </Project>

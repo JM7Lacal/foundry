@@ -1,4 +1,6 @@
+using System.IO;
 using System.Windows;
+using Foundry.App.Services;
 using Foundry.App.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -21,6 +23,7 @@ public partial class App : System.Windows.Application
                 services.AddFoundryApplication();
                 services.AddFoundryInfrastructure();
 
+                services.AddSingleton<IFilePicker, WpfFilePicker>();
                 services.AddSingleton<MainViewModel>();
                 services.AddSingleton<MainWindow>();
             })
@@ -32,7 +35,10 @@ public partial class App : System.Windows.Application
         base.OnStartup(e);
 
         await _host.StartAsync().ConfigureAwait(true);
+
         _host.Services.GetRequiredService<MainWindow>().Show();
+
+        await LoadBundledSampleAsync().ConfigureAwait(true);
     }
 
     protected override async void OnExit(ExitEventArgs e)
@@ -41,5 +47,16 @@ public partial class App : System.Windows.Application
         _host.Dispose();
 
         base.OnExit(e);
+    }
+
+    /// <summary>Carga el archivo de ejemplo que se copia junto al ejecutable, si existe.</summary>
+    private async Task LoadBundledSampleAsync()
+    {
+        var samplePath = Path.Combine(AppContext.BaseDirectory, "Samples", "tower-defense.json");
+        if (File.Exists(samplePath))
+        {
+            var viewModel = _host.Services.GetRequiredService<MainViewModel>();
+            await viewModel.LoadFromAsync(samplePath).ConfigureAwait(true);
+        }
     }
 }

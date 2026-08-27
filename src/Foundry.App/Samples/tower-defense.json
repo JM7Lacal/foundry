@@ -1,0 +1,145 @@
+{
+  "schemaVersion": 1,
+  "entities": [
+    {
+      "$type": "troop",
+      "id": "troop.militia",
+      "name": "Milicia",
+      "cost": 50,
+      "damage": 8,
+      "damageType": "physical",
+      "attacksPerSecond": 1.0,
+      "attackRange": 1.0,
+      "health": 60,
+      "armor": "unarmored",
+      "upgradesInto": "troop.swordsman"
+    },
+    {
+      "$type": "troop",
+      "id": "troop.swordsman",
+      "name": "Espadachin",
+      "cost": 120,
+      "damage": 16,
+      "damageType": "physical",
+      "attacksPerSecond": 1.1,
+      "attackRange": 1.0,
+      "health": 130,
+      "armor": "light",
+      "upgradesInto": "troop.knight"
+    },
+    {
+      "$type": "troop",
+      "id": "troop.knight",
+      "name": "Caballero",
+      "cost": 260,
+      "damage": 28,
+      "damageType": "physical",
+      "attacksPerSecond": 1.0,
+      "attackRange": 1.0,
+      "health": 320,
+      "armor": "heavy"
+    },
+    {
+      "$type": "troop",
+      "id": "troop.archer",
+      "name": "Arquero",
+      "cost": 90,
+      "damage": 12,
+      "damageType": "physical",
+      "attacksPerSecond": 1.4,
+      "attackRange": 6.0,
+      "health": 45,
+      "armor": "unarmored",
+      "upgradesInto": "troop.crossbowman"
+    },
+    {
+      "$type": "troop",
+      "id": "troop.crossbowman",
+      "name": "Ballestero",
+      "cost": 200,
+      "damage": 30,
+      "damageType": "siege",
+      "attacksPerSecond": 0.9,
+      "attackRange": 7.0,
+      "health": 70,
+      "armor": "light"
+    },
+    {
+      "$type": "tower",
+      "id": "tower.arrow",
+      "name": "Torre de arqueros",
+      "cost": 100,
+      "buildTimeSeconds": 3.0,
+      "damage": 14,
+      "damageType": "physical",
+      "attacksPerSecond": 1.5,
+      "attackRange": 8.0
+    },
+    {
+      "$type": "tower",
+      "id": "tower.cannon",
+      "name": "Torre de cañon",
+      "cost": 240,
+      "buildTimeSeconds": 6.0,
+      "damage": 55,
+      "damageType": "siege",
+      "attacksPerSecond": 0.5,
+      "attackRange": 7.0
+    },
+    {
+      "$type": "tower",
+      "id": "tower.arcane",
+      "name": "Torre arcana",
+      "cost": 320,
+      "buildTimeSeconds": 7.0,
+      "damage": 40,
+      "damageType": "magic",
+      "attacksPerSecond": 0.8,
+      "attackRange": 9.0
+    },
+    {
+      "$type": "enemy",
+      "id": "enemy.goblin",
+      "name": "Goblin",
+      "kind": "ground",
+      "health": 40,
+      "armor": "unarmored",
+      "moveSpeed": 2.4,
+      "goldReward": 6,
+      "damageToBase": 1
+    },
+    {
+      "$type": "enemy",
+      "id": "enemy.orc",
+      "name": "Orco",
+      "kind": "ground",
+      "health": 160,
+      "armor": "light",
+      "moveSpeed": 1.6,
+      "goldReward": 14,
+      "damageToBase": 2
+    },
+    {
+      "$type": "enemy",
+      "id": "enemy.harpy",
+      "name": "Arpia",
+      "kind": "flying",
+      "health": 90,
+      "armor": "unarmored",
+      "moveSpeed": 3.0,
+      "goldReward": 12,
+      "damageToBase": 1
+    },
+    {
+      "$type": "enemy",
+      "id": "enemy.troll-warlord",
+      "name": "Señor de la guerra troll",
+      "kind": "boss",
+      "health": 2400,
+      "armor": "fortified",
+      "moveSpeed": 1.0,
+      "goldReward": 150,
+      "damageToBase": 10
+    }
+  ]
+}
