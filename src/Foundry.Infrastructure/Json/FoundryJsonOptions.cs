@@ -29,7 +29,7 @@ public static class FoundryJsonOptions
             DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
             TypeInfoResolver = new DefaultJsonTypeInfoResolver
             {
-                Modifiers = { AddContentEntityPolymorphism },
+                Modifiers = { AddContentEntityPolymorphism, ExcludeComputedProperties },
             },
         };
 
@@ -60,5 +60,25 @@ public static class FoundryJsonOptions
         }
 
         typeInfo.PolymorphismOptions = polymorphism;
+    }
+
+    /// <summary>
+    /// <c>ContentEntity.CategoryName</c> es clasificacion para la UI (agrupar el arbol), no data
+    /// de contenido: se quita del JSON. Mantiene el dominio limpio de atributos de serializacion.
+    /// </summary>
+    private static void ExcludeComputedProperties(JsonTypeInfo typeInfo)
+    {
+        if (!typeof(ContentEntity).IsAssignableFrom(typeInfo.Type))
+        {
+            return;
+        }
+
+        for (var i = typeInfo.Properties.Count - 1; i >= 0; i--)
+        {
+            if (string.Equals(typeInfo.Properties[i].Name, "categoryName", StringComparison.OrdinalIgnoreCase))
+            {
+                typeInfo.Properties.RemoveAt(i);
+            }
+        }
     }
 }

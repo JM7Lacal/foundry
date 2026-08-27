@@ -23,6 +23,15 @@ public class JsonContentSerializerTests
     }
 
     [Fact]
+    public void CategoryName_is_not_written_to_the_json()
+    {
+        var json = _serializer.SerializeEntity(new Troop { Id = new EntityId("t.x"), Name = "X" });
+
+        json.Should().NotContain("categoryName");
+        json.Should().Contain("\"$type\"");
+    }
+
+    [Fact]
     public void DeserializeEntities_accepts_an_entities_wrapper()
     {
         var list = _serializer.DeserializeEntities(

@@ -14,10 +14,10 @@ public sealed class CategoryGlyphConverter : IValueConverter
     public object Convert(object value, Type targetType, object parameter, CultureInfo culture) =>
         (value as string) switch
         {
-            "Tropas" => "",   // Shield
-            "Torres" => "",   // MapPin
-            "Enemigos" => "", // Warning
-            _ => "",          // FolderHorizontal
+            "Tropas" => "",    // People
+            "Torres" => "",    // MapPin
+            "Enemigos" => "",  // Bug
+            _ => "",           // Folder
         };
 
     public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
