@@ -23,8 +23,11 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- Contenido de ejemplo que se carga al arrancar; se copia junto al ejecutable. -->
+    <!-- Contenido de ejemplo; se copia junto al ejecutable. tower-defense.json se carga al arrancar. -->
     <None Update="Samples\tower-defense.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="Samples\extra-troops.csv">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>

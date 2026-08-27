@@ -122,6 +122,17 @@
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
+
+                <GroupBox Header="Usado por" Margin="0,4,0,0" Padding="4"
+                          Visibility="{Binding HasUsages, Converter={x:Static conv:BooleanToVisibilityConverter.VisibleWhenTrue}}">
+                    <ItemsControl ItemsSource="{Binding Usages}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding}" Margin="2,1" />
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </GroupBox>
             </StackPanel>
         </ScrollViewer>
     </Grid>

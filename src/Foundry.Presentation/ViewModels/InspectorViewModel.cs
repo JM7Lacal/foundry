@@ -33,6 +33,11 @@ public partial class InspectorViewModel : ObservableObject
 
     public ObservableCollection<FieldGroupViewModel> Groups { get; } = [];
 
+    /// <summary>Entidades que referencian a la seleccionada ("¿quien usa esto?").</summary>
+    public ObservableCollection<string> Usages { get; } = [];
+
+    public bool HasUsages => Usages.Count > 0;
+
     public bool HasErrors => Fields().Any(field => field.HasErrors);
 
     public void Load(ContentEntity? entity, ContentDatabase database)
@@ -40,14 +45,23 @@ public partial class InspectorViewModel : ObservableObject
         ArgumentNullException.ThrowIfNull(database);
 
         Groups.Clear();
+        Usages.Clear();
         HasEntity = entity is not null;
         EntityTitle = entity is null ? null : $"{entity.CategoryName}  ·  {entity.Id}";
 
         if (entity is null)
         {
             OnPropertyChanged(nameof(HasErrors));
+            OnPropertyChanged(nameof(HasUsages));
             return;
         }
+
+        foreach (var link in ReferenceGraph.ReferrersOf(entity.Id, database))
+        {
+            Usages.Add($"{link.From.Name}  ·  {link.Field}");
+        }
+
+        OnPropertyChanged(nameof(HasUsages));
 
         void Apply(EditableField field, object? value)
         {

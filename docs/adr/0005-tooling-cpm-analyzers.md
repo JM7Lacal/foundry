@@ -13,8 +13,11 @@ proyectos y que el estilo/calidad del codigo derive con el tiempo.
   `.csproj` referencian paquetes sin `Version=`. Las versiones de `Microsoft.Extensions.*` se
   alinean con el runtime (.NET 8).
 - **`Directory.Build.props`**: ajustes compartidos — `Nullable`, `ImplicitUsings`,
-  `LangVersion=latest`, `GenerateDocumentationFile`, `TreatWarningsAsErrors=true`,
+  `LangVersion=12`, `GenerateDocumentationFile`, `TreatWarningsAsErrors=true`,
   `EnableNETAnalyzers` con `AnalysisLevel=latest-recommended`.
+- **`LangVersion` fijo en `12`** (no `latest`): la maquina de dev tiene tambien el SDK de
+  .NET 10, y `latest` compilaba como C# 14, cambiando el significado de identificadores como
+  `field`. Fijarlo hace el build reproducible y alineado con el runtime (net8.0 → C# 12).
 - **`.editorconfig`**: estilo (usings fuera del namespace, `namespace` file-scoped, campos
   privados con `_`) y ajuste puntual de reglas:
   - `CA1711` desactivada — nombres como `UndoStack` son mas claros que la alternativa.

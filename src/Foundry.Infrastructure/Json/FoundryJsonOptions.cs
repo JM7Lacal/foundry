@@ -1,4 +1,3 @@
-using System.Collections.ObjectModel;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
@@ -17,12 +16,6 @@ namespace Foundry.Infrastructure.Json;
 /// </remarks>
 public static class FoundryJsonOptions
 {
-    private static readonly ReadOnlyCollection<Type> EntityTypes = new(
-        typeof(ContentEntity).Assembly.GetTypes()
-            .Where(t => t is { IsAbstract: false, IsClass: true } && t.IsSubclassOf(typeof(ContentEntity)))
-            .OrderBy(t => t.Name, StringComparer.Ordinal)
-            .ToList());
-
     public static JsonSerializerOptions Create()
     {
         var options = new JsonSerializerOptions
@@ -43,13 +36,6 @@ public static class FoundryJsonOptions
         return options;
     }
 
-    /// <summary>Discriminador estable para un subtipo de entidad ("Troop" -> "troop").</summary>
-    public static string DiscriminatorFor(Type entityType)
-    {
-        ArgumentNullException.ThrowIfNull(entityType);
-        return entityType.Name.ToLowerInvariant();
-    }
-
     private static void AddContentEntityPolymorphism(JsonTypeInfo typeInfo)
     {
         if (typeInfo.Type != typeof(ContentEntity))
@@ -64,9 +50,10 @@ public static class FoundryJsonOptions
             UnknownDerivedTypeHandling = JsonUnknownDerivedTypeHandling.FailSerialization,
         };
 
-        foreach (var entityType in EntityTypes)
+        foreach (var entityType in ContentEntityCatalog.Types)
         {
-            polymorphism.DerivedTypes.Add(new JsonDerivedType(entityType, DiscriminatorFor(entityType)));
+            polymorphism.DerivedTypes.Add(
+                new JsonDerivedType(entityType, ContentEntityCatalog.DiscriminatorFor(entityType)));
         }
 
         typeInfo.PolymorphismOptions = polymorphism;

@@ -19,6 +19,7 @@ public partial class MainViewModel : ObservableObject
 {
     private readonly IContentRepository _repository;
     private readonly IContentSerializer _serializer;
+    private readonly IContentImporter _importer;
     private readonly IFilePicker _filePicker;
     private readonly IDialogService _dialogs;
     private readonly UndoStack _undoStack;
@@ -41,9 +42,13 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private bool _isDirty;
 
+    [ObservableProperty]
+    private string _searchText = string.Empty;
+
     public MainViewModel(
         IContentRepository repository,
         IContentSerializer serializer,
+        IContentImporter importer,
         IFilePicker filePicker,
         IDialogService dialogs,
         UndoStack undoStack,
@@ -52,6 +57,7 @@ public partial class MainViewModel : ObservableObject
     {
         _repository = repository;
         _serializer = serializer;
+        _importer = importer;
         _filePicker = filePicker;
         _dialogs = dialogs;
         _undoStack = undoStack;
@@ -153,6 +159,64 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand(CanExecute = nameof(CanRedo))]
     private void Redo() => _undoStack.Redo();
 
+    [RelayCommand]
+    private void ImportCsv()
+    {
+        if (IsDirty && !_dialogs.Confirm(
+                "Hay cambios sin guardar. La importacion se combina con lo actual. ¿Continuar?", "Foundry"))
+        {
+            return;
+        }
+
+        var path = _filePicker.PickOpenFile(_importer.FileFilter);
+        if (path is null)
+        {
+            return;
+        }
+
+        try
+        {
+            var imported = _importer.Import(path);
+            var replaced = 0;
+            foreach (var entity in imported)
+            {
+                if (_database.Contains(entity.Id))
+                {
+                    _database.Remove(entity.Id);
+                    replaced++;
+                }
+
+                _database.Add(entity);
+            }
+
+            _undoStack.Clear();
+            RebuildTree();
+            IsDirty = true;
+            StatusMessage = $"Importadas {imported.Count} entidades ({replaced} reemplazadas). Guardá para confirmar.";
+        }
+        catch (ContentImportException ex)
+        {
+            StatusMessage = $"No se pudo importar: {ex.Message}";
+            _dialogs.Inform(ex.Message, "Error al importar CSV");
+        }
+
+        SaveCommand.NotifyCanExecuteChanged();
+    }
+
+    [RelayCommand]
+    private void Validate()
+    {
+        var issues = _validator.Validate(_database);
+        StatusMessage = issues.Count == 0
+            ? "Sin problemas de validacion."
+            : $"{issues.Count} problema(s) de validacion.";
+        _dialogs.Inform(
+            issues.Count == 0
+                ? "No se encontraron problemas."
+                : string.Join(Environment.NewLine, issues.Select(issue => "• " + issue)),
+            "Validacion");
+    }
+
     private bool CanSave() => _database.Count > 0;
 
     private bool CanUndo() => _undoStack.CanUndo;
@@ -169,6 +233,8 @@ public partial class MainViewModel : ObservableObject
     partial void OnCurrentFilePathChanged(string? value) => OnPropertyChanged(nameof(Title));
 
     partial void OnIsDirtyChanged(bool value) => OnPropertyChanged(nameof(Title));
+
+    partial void OnSearchTextChanged(string value) => RebuildTree();
 
     private void OnUndoStackChanged(object? sender, EventArgs e)
     {
@@ -194,7 +260,9 @@ public partial class MainViewModel : ObservableObject
     {
         Categories.Clear();
 
+        var filter = SearchText.Trim();
         var groups = _database.All
+            .Where(entity => Matches(entity, filter))
             .GroupBy(entity => entity.CategoryName, StringComparer.Ordinal)
             .OrderBy(group => group.Key, StringComparer.CurrentCulture);
 
@@ -209,4 +277,9 @@ public partial class MainViewModel : ObservableObject
             Categories.Add(category);
         }
     }
+
+    private static bool Matches(ContentEntity entity, string filter) =>
+        filter.Length == 0
+        || entity.Name.Contains(filter, StringComparison.CurrentCultureIgnoreCase)
+        || entity.Id.Value.Contains(filter, StringComparison.OrdinalIgnoreCase);
 }

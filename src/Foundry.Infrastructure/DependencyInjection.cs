@@ -7,7 +7,7 @@ namespace Microsoft.Extensions.DependencyInjection;
 public static class FoundryInfrastructureServiceCollectionExtensions
 {
     /// <summary>
-    /// Registra las implementaciones de infraestructura: persistencia y serializacion JSON.
+    /// Registra las implementaciones de infraestructura: persistencia, serializacion e importadores.
     /// </summary>
     public static IServiceCollection AddFoundryInfrastructure(this IServiceCollection services)
     {
@@ -15,6 +15,7 @@ public static class FoundryInfrastructureServiceCollectionExtensions
 
         services.AddSingleton<IContentRepository, JsonContentRepository>();
         services.AddSingleton<IContentSerializer, JsonContentSerializer>();
+        services.AddSingleton<IContentImporter, CsvContentImporter>();
 
         return services;
     }

@@ -1,0 +1,4 @@
+type,id,Nombre,Costo,Daño,damageType,attacksPerSecond,Alcance,Vida,armor
+troop,troop.spearman,Lancero,110,18,physical,0.9,1.5,110,light
+troop,troop.pikeman,Piquero,180,26,physical,0.8,2.0,150,heavy
+troop,troop.scout,Explorador,70,7,physical,1.6,5.0,40,unarmored

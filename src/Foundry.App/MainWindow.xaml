@@ -36,11 +36,16 @@
                 <MenuItem Header="_Abrir..." InputGestureText="Ctrl+O" Command="{Binding OpenCommand}" />
                 <MenuItem Header="_Guardar" InputGestureText="Ctrl+S" Command="{Binding SaveCommand}" />
                 <Separator />
+                <MenuItem Header="_Importar CSV..." Command="{Binding ImportCsvCommand}" />
+                <Separator />
                 <MenuItem Header="_Salir" Click="OnExitClick" />
             </MenuItem>
             <MenuItem Header="_Editar">
                 <MenuItem Header="_Deshacer" InputGestureText="Ctrl+Z" Command="{Binding UndoCommand}" />
                 <MenuItem Header="_Rehacer" InputGestureText="Ctrl+Y" Command="{Binding RedoCommand}" />
+            </MenuItem>
+            <MenuItem Header="_Herramientas">
+                <MenuItem Header="_Validar contenido" Command="{Binding ValidateCommand}" />
             </MenuItem>
         </Menu>
 
@@ -58,10 +63,15 @@
             </Grid.ColumnDefinitions>
 
             <GroupBox Grid.Column="0" Header="Contenido">
-                <TreeView ItemsSource="{Binding Categories}"
-                          behaviors:TreeViewSelectionBehavior.TrackSelection="True"
-                          behaviors:TreeViewSelectionBehavior.SelectedItem="{Binding SelectedTreeItem, Mode=OneWayToSource}"
-                          BorderThickness="0" />
+                <DockPanel>
+                    <TextBox DockPanel.Dock="Top" Margin="0,0,0,6"
+                             Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                             ToolTip="Filtrar por nombre o id" />
+                    <TreeView ItemsSource="{Binding Categories}"
+                              behaviors:TreeViewSelectionBehavior.TrackSelection="True"
+                              behaviors:TreeViewSelectionBehavior.SelectedItem="{Binding SelectedTreeItem, Mode=OneWayToSource}"
+                              BorderThickness="0" Background="Transparent" />
+                </DockPanel>
             </GroupBox>
 
             <GridSplitter Grid.Column="1" Width="6"

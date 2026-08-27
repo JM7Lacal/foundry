@@ -19,6 +19,7 @@ public class MainViewModelTests
         var vm = new MainViewModel(
             repo,
             new StubSerializer(),
+            new StubImporter(),
             new StubFilePicker(),
             new StubDialogService(),
             undo,
@@ -96,6 +97,19 @@ public class MainViewModelTests
     }
 
     [Fact]
+    public async Task SearchText_filters_the_tree()
+    {
+        var (vm, _) = Build(SampleDatabase());
+        await vm.LoadFromAsync("ignored.json");
+
+        vm.SearchText = "orc";
+
+        vm.Categories.Should().ContainSingle();
+        vm.Categories[0].Name.Should().Be("Enemigos");
+        vm.Categories[0].Entities.Should().ContainSingle(n => n.Entity.Name == "Orco");
+    }
+
+    [Fact]
     public async Task Save_clears_the_dirty_flag_when_content_is_valid()
     {
         var db = SampleDatabase();
@@ -139,6 +153,15 @@ public class MainViewModelTests
     private sealed class StubSerializer : IContentSerializer
     {
         public string SerializeEntity(ContentEntity entity) => "<json>";
+    }
+
+    private sealed class StubImporter : IContentImporter
+    {
+        public string FormatName => "CSV";
+
+        public string FileFilter => "*.csv";
+
+        public IReadOnlyList<ContentEntity> Import(string path) => Array.Empty<ContentEntity>();
     }
 
     private sealed class StubDialogService : IDialogService

@@ -68,6 +68,9 @@ public sealed class EditableField
 
     public string PropertyName => _property.Name;
 
+    /// <summary>Tipo declarado de la propiedad (por ejemplo <c>int</c>, <c>EntityId?</c>).</summary>
+    public Type ValueType => _property.PropertyType;
+
     public object? GetValue(ContentEntity entity) => _property.GetValue(entity);
 
     public void SetValue(ContentEntity entity, object? value) => _property.SetValue(entity, value);
