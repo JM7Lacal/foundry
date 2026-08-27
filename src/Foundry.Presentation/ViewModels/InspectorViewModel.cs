@@ -1,5 +1,7 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
+using Foundry.Application.Editing;
+using Foundry.Application.Undo;
 using Foundry.Presentation.ViewModels.Inspector;
 using Foundry.Core.Content;
 using Foundry.Core.Editing;
@@ -8,21 +10,30 @@ namespace Foundry.Presentation.ViewModels;
 
 /// <summary>
 /// Construye el formulario de edicion de la entidad seleccionada reflexionando sobre su
-/// <see cref="EditableSchema"/>. No conoce ningun tipo de entidad concreto: agregar una entidad
-/// nueva no toca esta clase.
+/// <see cref="EditableSchema"/>. No conoce ningun tipo de entidad concreto. Toda edicion se
+/// aplica a traves del <see cref="UndoStack"/>.
 /// </summary>
 public partial class InspectorViewModel : ObservableObject
 {
+    private readonly UndoStack _undoStack;
+
     [ObservableProperty]
     private bool _hasEntity;
 
     [ObservableProperty]
     private string? _entityTitle;
 
-    public ObservableCollection<FieldGroupViewModel> Groups { get; } = [];
+    public InspectorViewModel(UndoStack undoStack)
+    {
+        _undoStack = undoStack;
+    }
 
     /// <summary>Se dispara cuando el usuario edita cualquier campo.</summary>
     public event EventHandler? EntityEdited;
+
+    public ObservableCollection<FieldGroupViewModel> Groups { get; } = [];
+
+    public bool HasErrors => Fields().Any(field => field.HasErrors);
 
     public void Load(ContentEntity? entity, ContentDatabase database)
     {
@@ -34,12 +45,13 @@ public partial class InspectorViewModel : ObservableObject
 
         if (entity is null)
         {
+            OnPropertyChanged(nameof(HasErrors));
             return;
         }
 
         void Apply(EditableField field, object? value)
         {
-            field.SetValue(entity, value);
+            _undoStack.Execute(new SetFieldValueAction(entity, field, value));
             EntityEdited?.Invoke(this, EventArgs.Empty);
         }
 
@@ -51,7 +63,31 @@ public partial class InspectorViewModel : ObservableObject
 
             Groups.Add(new FieldGroupViewModel(group.Key, fields));
         }
+
+        foreach (var field in Fields())
+        {
+            field.ErrorsChanged += OnFieldErrorsChanged;
+            field.Revalidate();
+        }
+
+        OnPropertyChanged(nameof(HasErrors));
     }
+
+    /// <summary>Tras undo/redo: los valores de la entidad cambiaron; refrescar los bindings.</summary>
+    public void RefreshValues()
+    {
+        foreach (var field in Fields())
+        {
+            field.RefreshFromModel();
+        }
+
+        OnPropertyChanged(nameof(HasErrors));
+    }
+
+    private IEnumerable<PropertyFieldViewModel> Fields() => Groups.SelectMany(group => group.Fields);
+
+    private void OnFieldErrorsChanged(object? sender, System.ComponentModel.DataErrorsChangedEventArgs e) =>
+        OnPropertyChanged(nameof(HasErrors));
 
     private static PropertyFieldViewModel CreateField(
         EditableField field,

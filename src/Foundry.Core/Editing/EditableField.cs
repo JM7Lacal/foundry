@@ -37,6 +37,8 @@ public sealed class EditableField
             Minimum = ToDouble(range.Minimum);
             Maximum = ToDouble(range.Maximum);
         }
+
+        IsRequired = property.GetCustomAttribute<RequiredAttribute>() is not null;
     }
 
     public string Label { get; }
@@ -60,6 +62,9 @@ public sealed class EditableField
     public double? Maximum { get; }
 
     public bool HasRange => Minimum is not null && Maximum is not null;
+
+    /// <summary>La propiedad esta marcada con <see cref="RequiredAttribute"/>.</summary>
+    public bool IsRequired { get; }
 
     public string PropertyName => _property.Name;
 

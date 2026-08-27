@@ -78,6 +78,7 @@ public partial class App : System.Windows.Application
                 services.AddFoundryPresentation();
 
                 services.AddSingleton<IFilePicker, WpfFilePicker>();
+                services.AddSingleton<IDialogService, WpfDialogService>();
                 services.AddSingleton<MainWindow>();
             })
             .Build();

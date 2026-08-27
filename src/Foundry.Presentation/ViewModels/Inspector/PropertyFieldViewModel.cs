@@ -1,3 +1,5 @@
+using System.Collections;
+using System.ComponentModel;
 using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Foundry.Core.Content;
@@ -6,13 +8,21 @@ using Foundry.Core.Editing;
 namespace Foundry.Presentation.ViewModels.Inspector;
 
 /// <summary>
-/// Base de los editores de un campo del Inspector. El getter lee siempre de la entidad; el setter
-/// delega en <see cref="Commit"/>, que aplica el cambio a traves del callback que pasa el
-/// <see cref="InspectorViewModel"/> (hoy escribe directo; en el Dia 3 lo hara via undo/redo).
+/// Base de los editores de un campo del Inspector.
+/// <para>
+/// El getter lee siempre de la entidad. El setter delega en <see cref="Commit"/>, que aplica el
+/// cambio via el callback del <see cref="InspectorViewModel"/> (que lo encola en el
+/// <c>UndoStack</c>).
+/// </para>
+/// <para>
+/// Implementa <see cref="INotifyDataErrorInfo"/>: cada subtipo aporta su regla en
+/// <see cref="Validate"/> (rango, requerido, referencia rota).
+/// </para>
 /// </summary>
-public abstract class PropertyFieldViewModel : ObservableObject
+public abstract class PropertyFieldViewModel : ObservableObject, INotifyDataErrorInfo
 {
     private readonly Action<EditableField, object?> _apply;
+    private string? _error;
 
     protected PropertyFieldViewModel(EditableField field, ContentEntity entity, Action<EditableField, object?> apply)
     {
@@ -25,9 +35,19 @@ public abstract class PropertyFieldViewModel : ObservableObject
         _apply = apply;
     }
 
+    public event EventHandler<DataErrorsChangedEventArgs>? ErrorsChanged;
+
     public string Label => Field.Label;
 
     public string? Description => Field.Description;
+
+    public bool IsRequired => Field.IsRequired;
+
+    public string RequiredMark => Field.IsRequired ? " *" : string.Empty;
+
+    public bool HasErrors => _error is not null;
+
+    public string? ErrorText => _error;
 
     protected EditableField Field { get; }
 
@@ -35,7 +55,56 @@ public abstract class PropertyFieldViewModel : ObservableObject
 
     protected object? CurrentValue => Field.GetValue(Entity);
 
-    protected void Commit(object? value) => _apply(Field, value);
+    /// <summary>Nombre de la propiedad de valor del subtipo, para <see cref="INotifyDataErrorInfo"/>.</summary>
+    protected abstract string ValuePropertyName { get; }
+
+    public IEnumerable GetErrors(string? propertyName) =>
+        _error is null ? Array.Empty<string>() : new[] { _error };
+
+    /// <summary>Recalcula la validacion. Llamar al construir el campo y tras cada cambio externo.</summary>
+    public void Revalidate()
+    {
+        var next = Validate();
+        if (next == _error)
+        {
+            return;
+        }
+
+        _error = next;
+        ErrorsChanged?.Invoke(this, new DataErrorsChangedEventArgs(ValuePropertyName));
+        OnPropertyChanged(nameof(HasErrors));
+        OnPropertyChanged(nameof(ErrorText));
+    }
+
+    /// <summary>La entidad cambio por afuera (undo/redo): releer todos los bindings y revalidar.</summary>
+    public void RefreshFromModel()
+    {
+        OnPropertyChanged(string.Empty);
+        Revalidate();
+    }
+
+    protected void Commit(object? value)
+    {
+        _apply(Field, value);
+        Revalidate();
+    }
+
+    protected virtual string? Validate()
+    {
+        if (Field.IsRequired && IsEmpty(CurrentValue))
+        {
+            return "Requerido.";
+        }
+
+        return null;
+    }
+
+    protected static bool IsEmpty(object? value) =>
+        value is null || (value is string text && string.IsNullOrWhiteSpace(text));
+
+    protected string RangeError() =>
+        $"Debe estar entre {Field.Minimum?.ToString("0.###", CultureInfo.CurrentCulture)} "
+        + $"y {Field.Maximum?.ToString("0.###", CultureInfo.CurrentCulture)}.";
 }
 
 /// <summary>Cadena libre.</summary>
@@ -45,6 +114,8 @@ public sealed class TextFieldViewModel : PropertyFieldViewModel
         : base(field, entity, apply)
     {
     }
+
+    protected override string ValuePropertyName => nameof(Value);
 
     public string Value
     {
@@ -65,6 +136,8 @@ public sealed class WholeNumberFieldViewModel : PropertyFieldViewModel
     {
     }
 
+    protected override string ValuePropertyName => nameof(Value);
+
     public int Value
     {
         get => Convert.ToInt32(CurrentValue ?? 0, CultureInfo.InvariantCulture);
@@ -80,6 +153,10 @@ public sealed class WholeNumberFieldViewModel : PropertyFieldViewModel
     public double Minimum => Field.Minimum ?? 0;
 
     public double Maximum => Field.Maximum ?? 100;
+
+    protected override string? Validate() =>
+        base.Validate()
+        ?? (Field.HasRange && (Value < Field.Minimum || Value > Field.Maximum) ? RangeError() : null);
 }
 
 /// <summary>Numero con decimales.</summary>
@@ -89,6 +166,8 @@ public sealed class NumberFieldViewModel : PropertyFieldViewModel
         : base(field, entity, apply)
     {
     }
+
+    protected override string ValuePropertyName => nameof(Value);
 
     public double Value
     {
@@ -105,6 +184,10 @@ public sealed class NumberFieldViewModel : PropertyFieldViewModel
     public double Minimum => Field.Minimum ?? 0;
 
     public double Maximum => Field.Maximum ?? 100;
+
+    protected override string? Validate() =>
+        base.Validate()
+        ?? (Field.HasRange && (Value < Field.Minimum || Value > Field.Maximum) ? RangeError() : null);
 }
 
 /// <summary>Verdadero / falso.</summary>
@@ -114,6 +197,8 @@ public sealed class ToggleFieldViewModel : PropertyFieldViewModel
         : base(field, entity, apply)
     {
     }
+
+    protected override string ValuePropertyName => nameof(Value);
 
     public bool Value
     {
@@ -134,6 +219,8 @@ public sealed class ChoiceFieldViewModel : PropertyFieldViewModel
     {
         Options = Enum.GetValues(field.EnumType!).Cast<object>().ToArray();
     }
+
+    protected override string ValuePropertyName => nameof(Value);
 
     public IReadOnlyList<object> Options { get; }
 
@@ -189,6 +276,8 @@ public sealed class ReferenceFieldViewModel : PropertyFieldViewModel
         Options = options;
     }
 
+    protected override string ValuePropertyName => nameof(SelectedOption);
+
     public IReadOnlyList<ReferenceOption> Options { get; }
 
     public ReferenceOption? SelectedOption
@@ -216,4 +305,6 @@ public sealed class ReferenceFieldViewModel : PropertyFieldViewModel
             return current is not null && !Options.Any(option => Nullable.Equals(option.Id, current));
         }
     }
+
+    protected override string? Validate() => IsBroken ? "La referencia no existe." : null;
 }

@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using Foundry.Core.Editing;
 
 namespace Foundry.Core.Content;
@@ -17,6 +18,7 @@ public abstract class ContentEntity
     public EntityId Id { get; set; }
 
     [EditableProperty(Label = "Nombre", Group = "General", Order = 0)]
+    [Required]
     public string Name { get; set; } = string.Empty;
 
     /// <summary>Etiqueta legible del tipo, para agrupar en el arbol de contenido ("Tropas", ...).</summary>

@@ -16,8 +16,8 @@ tocar el engine.
 | | |
 |---|---|
 | Build | `dotnet build` — OK |
-| Tests | `dotnet test` — 34/34 |
-| Fase | Dia 2 completo (Inspector por reflexion + preview). Ver [Roadmap](#roadmap). |
+| Tests | `dotnet test` — 46/46 |
+| Fase | Dia 3 completo (undo/redo + validacion + dirty tracking). Ver [Roadmap](#roadmap). |
 
 ## Correr
 
@@ -82,6 +82,7 @@ Decisiones clave, cada una con su ADR:
 | [0005](docs/adr/0005-tooling-cpm-analyzers.md) | Central Package Management + analyzers + warnings como errores |
 | [0006](docs/adr/0006-json-polimorfico-dominio-limpio.md) | JSON polimorfico sin ensuciar el dominio con atributos de serializacion |
 | [0007](docs/adr/0007-viewmodels-sin-wpf.md) | ViewModels en un assembly sin WPF; templates implicitos vs `DataTemplateSelector` |
+| [0008](docs/adr/0008-undo-redo-y-validacion.md) | Undo/redo (command pattern) y validacion en dos capas (`INotifyDataErrorInfo` + `ContentValidator`) |
 
 ## El nucleo: el Inspector
 
@@ -115,7 +116,7 @@ del Inspector de Unity / el Details de Unreal.
 | **0** ✅ | Solucion, 4 proyectos + tests, DI/host, ventana shell, build+test verde, tooling |
 | **1** ✅ | Entidades (`Troop`/`Tower`/`Enemy`) + atributos de edicion · `ContentDatabase` · repositorio JSON async y polimorfico · `TreeView` de contenido con seleccion → Inspector |
 | **2** ✅ | `EditableSchema` por reflexion · Inspector con un `DataTemplate` por `FieldKind` · selector de referencias · preview JSON en vivo · ViewModels movidos a `Foundry.Presentation` (sin WPF) |
-| **3** | Undo/redo sobre todas las ediciones · validacion `INotifyDataErrorInfo` · dirty tracking · atajos |
+| **3** ✅ | Undo/redo (`SetFieldValueAction`) en todas las ediciones · Ctrl+Z/Y + menu · validacion por campo (`INotifyDataErrorInfo`) y de la base completa (`ContentValidator`) · dirty tracking (`*` en el titulo) · prompt de cambios sin guardar al abrir/cerrar |
 | **4** | Tema oscuro · busqueda en el arbol · `IContentImporter` (CSV) · "find usages" de referencias · ADRs finales |
 
 ## Fuera de alcance (a proposito)
@@ -132,12 +133,13 @@ del Inspector de Unity / el Details de Unreal.
 
 ## Testing
 
-`xUnit` + `FluentAssertions`. 34 tests:
+`xUnit` + `FluentAssertions`. 46 tests:
 
 - **Core** — `EntityId`, `ContentDatabase`, `EditableSchema` (inferencia de `FieldKind`, rango,
   referencias, cache).
-- **Application** — `UndoStack`.
+- **Application** — `UndoStack`, `SetFieldValueAction` (undo/redo), `ContentValidator`
+  (rango / requerido / referencia rota).
 - **Infrastructure** — round-trip JSON, polimorfismo `$type`, tipo desconocido falla, formato.
-- **Presentation** — `InspectorViewModel` (arma grupos/campos, editar escribe en la entidad,
-  dispara `EntityEdited`, opciones de referencia) y `MainViewModel` (arbol, seleccion →
-  inspector + preview). Sin runner de WPF gracias al split de assemblies.
+- **Presentation** — `InspectorViewModel` (arma grupos/campos, editar pasa por el undo stack,
+  errores de validacion) y `MainViewModel` (arbol, seleccion → inspector + preview, dirty,
+  save bloqueado con datos invalidos, undo/redo). Sin runner de WPF gracias al split de assemblies.

@@ -12,18 +12,37 @@
 
     <UserControl.Resources>
 
+        <!-- Al fallar la validacion (INotifyDataErrorInfo) mostramos el error en el tooltip.
+             El borde rojo lo pone el ErrorTemplate por defecto de WPF. -->
+        <Style TargetType="TextBox">
+            <Style.Triggers>
+                <Trigger Property="Validation.HasError" Value="True">
+                    <Setter Property="ToolTip"
+                            Value="{Binding (Validation.Errors)/ErrorContent, RelativeSource={RelativeSource Self}}" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+        <Style TargetType="ComboBox">
+            <Style.Triggers>
+                <Trigger Property="Validation.HasError" Value="True">
+                    <Setter Property="ToolTip"
+                            Value="{Binding (Validation.Errors)/ErrorContent, RelativeSource={RelativeSource Self}}" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
         <!-- Un DataTemplate por tipo de campo. WPF los aplica implicitamente segun el tipo del
              ViewModel; no hace falta un DataTemplateSelector porque la eleccion depende del tipo,
              no de un valor en runtime. -->
 
         <DataTemplate DataType="{x:Type insp:TextFieldViewModel}">
-            <TextBox Text="{Binding Value, UpdateSourceTrigger=LostFocus}" />
+            <TextBox Text="{Binding Value, UpdateSourceTrigger=LostFocus, ValidatesOnNotifyDataErrors=True}" />
         </DataTemplate>
 
         <DataTemplate DataType="{x:Type insp:WholeNumberFieldViewModel}">
             <DockPanel>
                 <TextBox DockPanel.Dock="Right" Width="56" Margin="6,0,0,0"
-                         Text="{Binding Value, UpdateSourceTrigger=LostFocus}" />
+                         Text="{Binding Value, UpdateSourceTrigger=LostFocus, ValidatesOnNotifyDataErrors=True}" />
                 <Slider VerticalAlignment="Center"
                         Minimum="{Binding Minimum}" Maximum="{Binding Maximum}"
                         Value="{Binding Value}"
@@ -35,7 +54,7 @@
         <DataTemplate DataType="{x:Type insp:NumberFieldViewModel}">
             <DockPanel>
                 <TextBox DockPanel.Dock="Right" Width="56" Margin="6,0,0,0"
-                         Text="{Binding Value, UpdateSourceTrigger=LostFocus, StringFormat=0.###}" />
+                         Text="{Binding Value, UpdateSourceTrigger=LostFocus, StringFormat=0.###, ValidatesOnNotifyDataErrors=True}" />
                 <Slider VerticalAlignment="Center"
                         Minimum="{Binding Minimum}" Maximum="{Binding Maximum}"
                         Value="{Binding Value}"
@@ -53,7 +72,7 @@
 
         <DataTemplate DataType="{x:Type insp:ReferenceFieldViewModel}">
             <ComboBox ItemsSource="{Binding Options}"
-                      SelectedItem="{Binding SelectedOption}"
+                      SelectedItem="{Binding SelectedOption, ValidatesOnNotifyDataErrors=True}"
                       DisplayMemberPath="Label" />
         </DataTemplate>
     </UserControl.Resources>
@@ -80,10 +99,21 @@
                                                     <ColumnDefinition Width="150" />
                                                     <ColumnDefinition Width="*" />
                                                 </Grid.ColumnDefinitions>
-                                                <TextBlock Text="{Binding Label}" VerticalAlignment="Center"
+
+                                                <TextBlock VerticalAlignment="Center"
                                                            TextTrimming="CharacterEllipsis"
-                                                           ToolTip="{Binding Description}" />
-                                                <ContentControl Grid.Column="1" Content="{Binding}" />
+                                                           ToolTip="{Binding Description}">
+                                                    <Run Text="{Binding Label, Mode=OneWay}" />
+                                                    <Run Text="{Binding RequiredMark, Mode=OneWay}" Foreground="#C0392B" />
+                                                </TextBlock>
+
+                                                <StackPanel Grid.Column="1">
+                                                    <ContentControl Content="{Binding}" />
+                                                    <TextBlock Text="{Binding ErrorText}"
+                                                               Foreground="#C0392B" FontSize="11"
+                                                               TextWrapping="Wrap" Margin="0,2,0,0"
+                                                               Visibility="{Binding HasErrors, Converter={x:Static conv:BooleanToVisibilityConverter.VisibleWhenTrue}}" />
+                                                </StackPanel>
                                             </Grid>
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>

@@ -1,4 +1,5 @@
 using Foundry.Application.Undo;
+using Foundry.Application.Validation;
 
 // Convencion .NET: las extensiones de registro viven en este namespace para que aparezcan
 // automaticamente donde se configura el contenedor.
@@ -12,6 +13,7 @@ public static class FoundryApplicationServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(services);
 
         services.AddSingleton<UndoStack>();
+        services.AddSingleton<ContentValidator>();
 
         return services;
     }

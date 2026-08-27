@@ -26,6 +26,8 @@
     <Window.InputBindings>
         <KeyBinding Modifiers="Control" Key="O" Command="{Binding OpenCommand}" />
         <KeyBinding Modifiers="Control" Key="S" Command="{Binding SaveCommand}" />
+        <KeyBinding Modifiers="Control" Key="Z" Command="{Binding UndoCommand}" />
+        <KeyBinding Modifiers="Control" Key="Y" Command="{Binding RedoCommand}" />
     </Window.InputBindings>
 
     <DockPanel>
@@ -37,8 +39,8 @@
                 <MenuItem Header="_Salir" Click="OnExitClick" />
             </MenuItem>
             <MenuItem Header="_Editar">
-                <MenuItem Header="_Deshacer" InputGestureText="Ctrl+Z" IsEnabled="False" />
-                <MenuItem Header="_Rehacer" InputGestureText="Ctrl+Y" IsEnabled="False" />
+                <MenuItem Header="_Deshacer" InputGestureText="Ctrl+Z" Command="{Binding UndoCommand}" />
+                <MenuItem Header="_Rehacer" InputGestureText="Ctrl+Y" Command="{Binding RedoCommand}" />
             </MenuItem>
         </Menu>
 

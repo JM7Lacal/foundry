@@ -1,22 +1,28 @@
 using System.Collections.ObjectModel;
+using System.IO;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using Foundry.Presentation.Services;
 using Foundry.Application.Content;
 using Foundry.Application.Editing;
+using Foundry.Application.Undo;
+using Foundry.Application.Validation;
 using Foundry.Core.Content;
+using Foundry.Presentation.Services;
 
 namespace Foundry.Presentation.ViewModels;
 
 /// <summary>
-/// ViewModel raiz. Orquesta la carga/guardado del archivo de contenido, el arbol de categorias,
-/// el Inspector de la entidad seleccionada y el preview JSON.
+/// ViewModel raiz. Orquesta carga/guardado, el arbol de categorias, el Inspector, el preview JSON,
+/// el historial de undo/redo y el estado "cambios sin guardar".
 /// </summary>
 public partial class MainViewModel : ObservableObject
 {
     private readonly IContentRepository _repository;
-    private readonly IFilePicker _filePicker;
     private readonly IContentSerializer _serializer;
+    private readonly IFilePicker _filePicker;
+    private readonly IDialogService _dialogs;
+    private readonly UndoStack _undoStack;
+    private readonly ContentValidator _validator;
 
     private ContentDatabase _database = new();
 
@@ -32,26 +38,41 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private object? _selectedTreeItem;
 
+    [ObservableProperty]
+    private bool _isDirty;
+
     public MainViewModel(
         IContentRepository repository,
-        IFilePicker filePicker,
         IContentSerializer serializer,
+        IFilePicker filePicker,
+        IDialogService dialogs,
+        UndoStack undoStack,
+        ContentValidator validator,
         InspectorViewModel inspector)
     {
         _repository = repository;
-        _filePicker = filePicker;
         _serializer = serializer;
+        _filePicker = filePicker;
+        _dialogs = dialogs;
+        _undoStack = undoStack;
+        _validator = validator;
         Inspector = inspector;
-        Inspector.EntityEdited += OnEntityEdited;
+
+        _undoStack.Changed += OnUndoStackChanged;
     }
 
     public ObservableCollection<ContentCategoryViewModel> Categories { get; } = [];
 
     public InspectorViewModel Inspector { get; }
 
-    public string Title => CurrentFilePath is null
-        ? "Foundry — Editor de contenido"
-        : $"Foundry — {System.IO.Path.GetFileName(CurrentFilePath)}";
+    public string Title
+    {
+        get
+        {
+            var name = CurrentFilePath is null ? "Editor de contenido" : Path.GetFileName(CurrentFilePath);
+            return $"Foundry — {name}{(IsDirty ? " *" : string.Empty)}";
+        }
+    }
 
     /// <summary>Entidad seleccionada en el arbol, o <c>null</c> si hay una categoria o nada.</summary>
     public ContentEntity? SelectedEntity => (SelectedTreeItem as EntityNodeViewModel)?.Entity;
@@ -62,11 +83,12 @@ public partial class MainViewModel : ObservableObject
 
         try
         {
-            var database = await _repository.LoadAsync(path).ConfigureAwait(true);
-            _database = database;
+            _database = await _repository.LoadAsync(path).ConfigureAwait(true);
             CurrentFilePath = path;
+            _undoStack.Clear();
             RebuildTree();
-            StatusMessage = $"{database.Count} entidades cargadas.";
+            IsDirty = false;
+            StatusMessage = $"{_database.Count} entidades cargadas.";
         }
         catch (ContentRepositoryException ex)
         {
@@ -79,6 +101,12 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     private async Task OpenAsync()
     {
+        if (IsDirty && !_dialogs.Confirm(
+                "Hay cambios sin guardar. ¿Descartarlos y abrir otro archivo?", "Foundry"))
+        {
+            return;
+        }
+
         var path = _filePicker.PickOpenFile("Contenido de juego (*.json)|*.json");
         if (path is not null)
         {
@@ -89,6 +117,16 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand(CanExecute = nameof(CanSave))]
     private async Task SaveAsync()
     {
+        var issues = _validator.Validate(_database);
+        if (issues.Count > 0)
+        {
+            StatusMessage = $"No se guardo: {issues.Count} problema(s) de validacion. Ej.: {issues[0]}";
+            _dialogs.Inform(
+                string.Join(Environment.NewLine, issues.Take(15).Select(issue => "• " + issue)),
+                $"{issues.Count} problema(s) de validacion");
+            return;
+        }
+
         var path = CurrentFilePath
                    ?? _filePicker.PickSaveFile("Contenido de juego (*.json)|*.json", "contenido.json");
         if (path is null)
@@ -100,6 +138,7 @@ public partial class MainViewModel : ObservableObject
         {
             await _repository.SaveAsync(_database, path).ConfigureAwait(true);
             CurrentFilePath = path;
+            IsDirty = false;
             StatusMessage = $"Guardado en {path}";
         }
         catch (ContentRepositoryException ex)
@@ -108,7 +147,17 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
+    [RelayCommand(CanExecute = nameof(CanUndo))]
+    private void Undo() => _undoStack.Undo();
+
+    [RelayCommand(CanExecute = nameof(CanRedo))]
+    private void Redo() => _undoStack.Redo();
+
     private bool CanSave() => _database.Count > 0;
+
+    private bool CanUndo() => _undoStack.CanUndo;
+
+    private bool CanRedo() => _undoStack.CanRedo;
 
     partial void OnSelectedTreeItemChanged(object? value)
     {
@@ -119,11 +168,23 @@ public partial class MainViewModel : ObservableObject
 
     partial void OnCurrentFilePathChanged(string? value) => OnPropertyChanged(nameof(Title));
 
-    private void OnEntityEdited(object? sender, EventArgs e)
+    partial void OnIsDirtyChanged(bool value) => OnPropertyChanged(nameof(Title));
+
+    private void OnUndoStackChanged(object? sender, EventArgs e)
     {
+        if (_undoStack.CanUndo || _undoStack.CanRedo)
+        {
+            IsDirty = true;
+        }
+
+        Inspector.RefreshValues();
         UpdatePreview();
         (SelectedTreeItem as EntityNodeViewModel)?.Refresh();
-        StatusMessage = "Cambios sin guardar.";
+
+        UndoCommand.NotifyCanExecuteChanged();
+        RedoCommand.NotifyCanExecuteChanged();
+
+        StatusMessage = Inspector.HasErrors ? "Cambios sin guardar — hay errores de validacion." : "Cambios sin guardar.";
     }
 
     private void UpdatePreview() =>

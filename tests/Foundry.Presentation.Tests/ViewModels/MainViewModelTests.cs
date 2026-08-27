@@ -1,6 +1,8 @@
 using FluentAssertions;
 using Foundry.Application.Content;
 using Foundry.Application.Editing;
+using Foundry.Application.Undo;
+using Foundry.Application.Validation;
 using Foundry.Core.Content;
 using Foundry.Presentation.Services;
 using Foundry.Presentation.ViewModels;
@@ -10,13 +12,19 @@ namespace Foundry.Presentation.Tests.ViewModels;
 
 public class MainViewModelTests
 {
-    private static MainViewModel Build(ContentDatabase database)
+    private static (MainViewModel Vm, RecordingRepository Repo) Build(ContentDatabase database)
     {
-        return new MainViewModel(
-            new StubRepository(database),
-            new StubFilePicker(),
+        var undo = new UndoStack();
+        var repo = new RecordingRepository(database);
+        var vm = new MainViewModel(
+            repo,
             new StubSerializer(),
-            new InspectorViewModel());
+            new StubFilePicker(),
+            new StubDialogService(),
+            undo,
+            new ContentValidator(),
+            new InspectorViewModel(undo));
+        return (vm, repo);
     }
 
     private static ContentDatabase SampleDatabase()
@@ -27,69 +35,118 @@ public class MainViewModelTests
         return db;
     }
 
-    [Fact]
-    public async Task LoadFromAsync_populates_the_category_tree()
+    private static WholeNumberFieldViewModel DamageField(MainViewModel vm) =>
+        (WholeNumberFieldViewModel)vm.Inspector.Groups.SelectMany(g => g.Fields).Single(f => f.Label == "Daño");
+
+    private static async Task<MainViewModel> LoadedWithArcherSelected(ContentDatabase db)
     {
-        var vm = Build(SampleDatabase());
+        var (vm, _) = Build(db);
+        await vm.LoadFromAsync("ignored.json");
+        vm.SelectedTreeItem = vm.Categories.SelectMany(c => c.Entities).First(n => n.Entity.Name == "Arquero");
+        return vm;
+    }
+
+    [Fact]
+    public async Task LoadFromAsync_populates_the_tree_and_is_not_dirty()
+    {
+        var (vm, _) = Build(SampleDatabase());
 
         await vm.LoadFromAsync("ignored.json");
 
         vm.Categories.Select(c => c.Name).Should().BeEquivalentTo("Enemigos", "Tropas");
         vm.SaveCommand.CanExecute(null).Should().BeTrue();
+        vm.IsDirty.Should().BeFalse();
     }
 
     [Fact]
-    public async Task Selecting_an_entity_node_loads_the_inspector_and_preview()
+    public async Task Selecting_an_entity_loads_the_inspector_and_preview()
     {
-        var vm = Build(SampleDatabase());
-        await vm.LoadFromAsync("ignored.json");
-        var node = vm.Categories.SelectMany(c => c.Entities).First(n => n.Entity.Name == "Arquero");
+        var vm = await LoadedWithArcherSelected(SampleDatabase());
 
-        vm.SelectedTreeItem = node;
-
-        vm.SelectedEntity.Should().BeSameAs(node.Entity);
         vm.Inspector.HasEntity.Should().BeTrue();
         vm.JsonPreview.Should().Be("<json>");
     }
 
     [Fact]
-    public async Task Editing_a_field_marks_unsaved_changes_and_refreshes_the_preview()
+    public async Task Editing_marks_dirty_and_undo_reverts_it()
     {
-        var vm = Build(SampleDatabase());
-        await vm.LoadFromAsync("ignored.json");
-        var node = vm.Categories.SelectMany(c => c.Entities).First(n => n.Entity.Name == "Arquero");
-        vm.SelectedTreeItem = node;
+        var vm = await LoadedWithArcherSelected(SampleDatabase());
 
-        var damage = (WholeNumberFieldViewModel)vm.Inspector.Groups
-            .SelectMany(g => g.Fields).Single(f => f.Label == "Daño");
-        damage.Value = 99;
+        DamageField(vm).Value = 99;
 
-        ((Troop)node.Entity).Damage.Should().Be(99);
-        vm.StatusMessage.Should().Contain("sin guardar");
+        vm.IsDirty.Should().BeTrue();
+        vm.Title.Should().EndWith("*");
+        vm.UndoCommand.CanExecute(null).Should().BeTrue();
+
+        vm.UndoCommand.Execute(null);
+        DamageField(vm).Value.Should().Be(10);
     }
 
-    private sealed class StubRepository : IContentRepository
+    [Fact]
+    public async Task Save_is_blocked_when_the_database_has_validation_issues()
+    {
+        var db = SampleDatabase();
+        var vm = await LoadedWithArcherSelected(db);
+        DamageField(vm).Value = 999999; // fuera de rango
+
+        vm.SaveCommand.Execute(null);
+        await Task.Yield();
+
+        vm.StatusMessage.Should().Contain("validacion");
+    }
+
+    [Fact]
+    public async Task Save_clears_the_dirty_flag_when_content_is_valid()
+    {
+        var db = SampleDatabase();
+        var (vm, repo) = Build(db);
+        await vm.LoadFromAsync("ignored.json");
+        vm.SelectedTreeItem = vm.Categories.SelectMany(c => c.Entities).First(n => n.Entity.Name == "Arquero");
+        DamageField(vm).Value = 25;
+
+        vm.SaveCommand.Execute(null);
+        await Task.Yield();
+
+        repo.Saved.Should().BeTrue();
+        vm.IsDirty.Should().BeFalse();
+    }
+
+    private sealed class RecordingRepository : IContentRepository
     {
         private readonly ContentDatabase _database;
 
-        public StubRepository(ContentDatabase database) => _database = database;
+        public RecordingRepository(ContentDatabase database) => _database = database;
+
+        public bool Saved { get; private set; }
 
         public Task<ContentDatabase> LoadAsync(string path, CancellationToken cancellationToken = default)
             => Task.FromResult(_database);
 
         public Task SaveAsync(ContentDatabase database, string path, CancellationToken cancellationToken = default)
-            => Task.CompletedTask;
+        {
+            Saved = true;
+            return Task.CompletedTask;
+        }
     }
 
     private sealed class StubFilePicker : IFilePicker
     {
         public string? PickOpenFile(string filter) => null;
 
-        public string? PickSaveFile(string filter, string? suggestedFileName) => null;
+        public string? PickSaveFile(string filter, string? suggestedFileName) => "out.json";
     }
 
     private sealed class StubSerializer : IContentSerializer
     {
         public string SerializeEntity(ContentEntity entity) => "<json>";
+    }
+
+    private sealed class StubDialogService : IDialogService
+    {
+        public bool Confirm(string message, string title) => true;
+
+        public void Inform(string message, string title)
+        {
+        }
     }
 }
