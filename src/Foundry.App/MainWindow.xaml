@@ -3,9 +3,9 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:vm="clr-namespace:Foundry.App.ViewModels"
+        xmlns:vm="clr-namespace:Foundry.Presentation.ViewModels;assembly=Foundry.Presentation"
+        xmlns:views="clr-namespace:Foundry.App.Views"
         xmlns:behaviors="clr-namespace:Foundry.App.Behaviors"
-        xmlns:conv="clr-namespace:Foundry.App.Converters"
         mc:Ignorable="d"
         d:DataContext="{d:DesignInstance Type=vm:MainViewModel}"
         Title="{Binding Title}"
@@ -65,29 +65,21 @@
                           HorizontalAlignment="Center" VerticalAlignment="Stretch" />
 
             <GroupBox Grid.Column="2" Header="Inspector">
-                <Grid>
-                    <TextBlock Margin="6" Opacity="0.6"
-                               Text="Seleccioná una entidad en el arbol."
-                               Visibility="{Binding SelectedEntity, Converter={x:Static conv:NullToVisibilityConverter.CollapsedWhenNotNull}}" />
-
-                    <StackPanel Margin="6"
-                                Visibility="{Binding SelectedEntity, Converter={x:Static conv:NullToVisibilityConverter.CollapsedWhenNull}}">
-                        <TextBlock Text="{Binding SelectedEntity.CategoryName}" FontWeight="SemiBold" />
-                        <TextBlock Text="{Binding SelectedEntity.Name}" FontSize="16" Margin="0,2,0,8" />
-                        <TextBlock Text="{Binding SelectedEntity.Id}" Opacity="0.6" />
-                        <TextBlock Margin="0,16,0,0" Opacity="0.6"
-                                   TextWrapping="Wrap"
-                                   Text="El editor de propiedades por reflexion se agrega en el Dia 2." />
-                    </StackPanel>
-                </Grid>
+                <views:InspectorView DataContext="{Binding Inspector}" />
             </GroupBox>
 
             <GridSplitter Grid.Column="3" Width="6"
                           HorizontalAlignment="Center" VerticalAlignment="Stretch" />
 
             <GroupBox Grid.Column="4" Header="Preview JSON">
-                <TextBlock Margin="6" Opacity="0.6"
-                           Text="Salida que consumiria el juego (Dia 2)" />
+                <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+                    <TextBox Text="{Binding JsonPreview, Mode=OneWay}"
+                             IsReadOnly="True" BorderThickness="0"
+                             FontFamily="Consolas, Cascadia Mono, monospace"
+                             TextWrapping="NoWrap"
+                             VerticalScrollBarVisibility="Disabled"
+                             HorizontalScrollBarVisibility="Disabled" />
+                </ScrollViewer>
             </GroupBox>
         </Grid>
     </DockPanel>

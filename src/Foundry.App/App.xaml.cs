@@ -1,7 +1,8 @@
 using System.IO;
 using System.Windows;
 using Foundry.App.Services;
-using Foundry.App.ViewModels;
+using Foundry.Presentation.Services;
+using Foundry.Presentation.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
@@ -22,9 +23,9 @@ public partial class App : System.Windows.Application
             {
                 services.AddFoundryApplication();
                 services.AddFoundryInfrastructure();
+                services.AddFoundryPresentation();
 
                 services.AddSingleton<IFilePicker, WpfFilePicker>();
-                services.AddSingleton<MainViewModel>();
                 services.AddSingleton<MainWindow>();
             })
             .Build();

@@ -1,4 +1,4 @@
-namespace Foundry.App.Services;
+namespace Foundry.Presentation.Services;
 
 /// <summary>
 /// Abstraccion de los dialogos de archivo. El ViewModel no instancia <c>OpenFileDialog</c>

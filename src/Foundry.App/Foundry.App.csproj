@@ -1,7 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <!-- Capa de presentacion: WPF, XAML, ViewModels y el composition root (App.xaml.cs).
-       Es el unico proyecto que referencia a todos los demas. -->
+  <!-- Capa WPF: Views (XAML), converters, behaviors, implementaciones especificas de Windows
+       (WpfFilePicker) y el composition root (App.xaml.cs). Los ViewModels viven en
+       Foundry.Presentation. -->
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0-windows</TargetFramework>
@@ -11,11 +12,11 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="CommunityToolkit.Mvvm" />
     <PackageReference Include="Microsoft.Extensions.Hosting" />
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\Foundry.Presentation\Foundry.Presentation.csproj" />
     <ProjectReference Include="..\Foundry.Infrastructure\Foundry.Infrastructure.csproj" />
     <ProjectReference Include="..\Foundry.Application\Foundry.Application.csproj" />
     <ProjectReference Include="..\Foundry.Core\Foundry.Core.csproj" />

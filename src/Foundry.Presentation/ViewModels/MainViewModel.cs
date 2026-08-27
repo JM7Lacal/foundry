@@ -1,22 +1,27 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using Foundry.App.Services;
+using Foundry.Presentation.Services;
 using Foundry.Application.Content;
+using Foundry.Application.Editing;
 using Foundry.Core.Content;
 
-namespace Foundry.App.ViewModels;
+namespace Foundry.Presentation.ViewModels;
 
 /// <summary>
-/// ViewModel raiz. Orquesta la carga/guardado del archivo de contenido, el arbol de categorias
-/// y que entidad esta seleccionada para el Inspector.
+/// ViewModel raiz. Orquesta la carga/guardado del archivo de contenido, el arbol de categorias,
+/// el Inspector de la entidad seleccionada y el preview JSON.
 /// </summary>
 public partial class MainViewModel : ObservableObject
 {
     private readonly IContentRepository _repository;
     private readonly IFilePicker _filePicker;
+    private readonly IContentSerializer _serializer;
 
     private ContentDatabase _database = new();
+
+    [ObservableProperty]
+    private string _jsonPreview = string.Empty;
 
     [ObservableProperty]
     private string _statusMessage = "Sin contenido cargado.";
@@ -27,13 +32,22 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private object? _selectedTreeItem;
 
-    public MainViewModel(IContentRepository repository, IFilePicker filePicker)
+    public MainViewModel(
+        IContentRepository repository,
+        IFilePicker filePicker,
+        IContentSerializer serializer,
+        InspectorViewModel inspector)
     {
         _repository = repository;
         _filePicker = filePicker;
+        _serializer = serializer;
+        Inspector = inspector;
+        Inspector.EntityEdited += OnEntityEdited;
     }
 
     public ObservableCollection<ContentCategoryViewModel> Categories { get; } = [];
+
+    public InspectorViewModel Inspector { get; }
 
     public string Title => CurrentFilePath is null
         ? "Foundry — Editor de contenido"
@@ -96,9 +110,24 @@ public partial class MainViewModel : ObservableObject
 
     private bool CanSave() => _database.Count > 0;
 
-    partial void OnSelectedTreeItemChanged(object? value) => OnPropertyChanged(nameof(SelectedEntity));
+    partial void OnSelectedTreeItemChanged(object? value)
+    {
+        OnPropertyChanged(nameof(SelectedEntity));
+        Inspector.Load(SelectedEntity, _database);
+        UpdatePreview();
+    }
 
     partial void OnCurrentFilePathChanged(string? value) => OnPropertyChanged(nameof(Title));
+
+    private void OnEntityEdited(object? sender, EventArgs e)
+    {
+        UpdatePreview();
+        (SelectedTreeItem as EntityNodeViewModel)?.Refresh();
+        StatusMessage = "Cambios sin guardar.";
+    }
+
+    private void UpdatePreview() =>
+        JsonPreview = SelectedEntity is null ? string.Empty : _serializer.SerializeEntity(SelectedEntity);
 
     private void RebuildTree()
     {

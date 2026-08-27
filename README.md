@@ -16,8 +16,8 @@ tocar el engine.
 | | |
 |---|---|
 | Build | `dotnet build` — OK |
-| Tests | `dotnet test` — 18/18 |
-| Fase | Dia 1 completo (dominio + persistencia + arbol). Ver [Roadmap](#roadmap). |
+| Tests | `dotnet test` — 34/34 |
+| Fase | Dia 2 completo (Inspector por reflexion + preview). Ver [Roadmap](#roadmap). |
 
 ## Correr
 
@@ -39,16 +39,19 @@ workload ".NET desktop development" (diseñador XAML, Live Visual Tree).
 ```
 Foundry.sln
 ├── src/
-│   ├── Foundry.Core            Dominio puro: entidades de contenido, value objects, reglas.
+│   ├── Foundry.Core            Dominio puro: entidades, value objects, EditableSchema (reflexion).
 │   │                           Sin WPF, sin JSON, sin file system. No referencia a nadie.
 │   ├── Foundry.Application     Casos de uso + abstracciones (puertos): IContentRepository,
-│   │                           UndoStack. Define QUE, no COMO.
-│   ├── Foundry.Infrastructure  Implementaciones: repositorio JSON (polimorfico), disco.
-│   └── Foundry.App             WPF: Views (XAML), ViewModels, composition root (App.xaml.cs).
+│   │                           IContentSerializer, UndoStack. Define QUE, no COMO.
+│   ├── Foundry.Infrastructure  Implementaciones: repositorio y serializador JSON (polimorficos).
+│   ├── Foundry.Presentation    ViewModels + IFilePicker. SIN dependencia de WPF.
+│   └── Foundry.App             WPF: Views (XAML), converters, behaviors, WpfFilePicker,
+│                               composition root (App.xaml.cs).
 └── tests/
     ├── Foundry.Core.Tests
     ├── Foundry.Application.Tests
-    └── Foundry.Infrastructure.Tests
+    ├── Foundry.Infrastructure.Tests
+    └── Foundry.Presentation.Tests   ViewModels, sin runner de WPF
 ```
 
 ## Arquitectura
@@ -56,15 +59,17 @@ Foundry.sln
 **Regla de dependencias — siempre hacia adentro:**
 
 ```
-App  ─►  Infrastructure  ─►  Application  ─►  Core
-                                              ▲
-        Infrastructure ───────────────────────┘
+App  ─►  Presentation  ─►  Application  ─►  Core
+  │            │                            ▲
+  └─► Infrastructure ──────────────────────┘
 ```
 
 `Core` no conoce a nadie, asi que la logica de dominio se testea sin instanciar una ventana ni
 tocar el disco. `Application` define interfaces (`IContentRepository`) que `Infrastructure`
-implementa: la capa de casos de uso no sabe que la persistencia es JSON. El limite se **fuerza
-con los proyectos**: MSBuild no permite referencias circulares ni saltos de capa.
+implementa: la capa de casos de uso no sabe que la persistencia es JSON. Los **ViewModels viven
+en `Foundry.Presentation`, sin referencia a WPF** — se testean con un runner de consola normal
+(ver [ADR 0007](docs/adr/0007-viewmodels-sin-wpf.md)). El limite se **fuerza con los proyectos**:
+MSBuild no permite referencias circulares ni saltos de capa.
 
 Decisiones clave, cada una con su ADR:
 
@@ -76,8 +81,9 @@ Decisiones clave, cada una con su ADR:
 | [0004](docs/adr/0004-fluentassertions-7.md) | `FluentAssertions` fijado en 7.2.0 (8.x pasa a licencia paga) |
 | [0005](docs/adr/0005-tooling-cpm-analyzers.md) | Central Package Management + analyzers + warnings como errores |
 | [0006](docs/adr/0006-json-polimorfico-dominio-limpio.md) | JSON polimorfico sin ensuciar el dominio con atributos de serializacion |
+| [0007](docs/adr/0007-viewmodels-sin-wpf.md) | ViewModels en un assembly sin WPF; templates implicitos vs `DataTemplateSelector` |
 
-## El nucleo: el Inspector (Dia 2)
+## El nucleo: el Inspector
 
 El diferenciador tecnico del proyecto. En lugar de escribir un formulario por tipo de entidad,
 las entidades se decoran con atributos:
@@ -92,10 +98,12 @@ public int Damage { get; set; }
 public EntityId? UpgradesInto { get; set; }
 ```
 
-`InspectorViewModel` reflexiona sobre la entidad seleccionada y construye una lista de
-`PropertyFieldViewModel` (uno por propiedad editable). Un `DataTemplateSelector` elige el control
-segun el tipo: `TextBox`, `Slider`, `ComboBox` para enums, picker para referencias. Cada edicion
-se encola como un `IUndoableAction` en el `UndoStack`.
+`EditableSchema.For(type)` (en `Core`) reflexiona una vez por tipo y produce una lista de
+`EditableField` con etiqueta, grupo, orden, rango y `FieldKind`. `InspectorViewModel` la recorre
+y crea un `PropertyFieldViewModel` por campo (`TextField`, `WholeNumberField`, `ChoiceField`,
+`ReferenceField`, ...). Cada subtipo tiene su `DataTemplate` implicito en `InspectorView.xaml`:
+`TextBox`, `Slider` + `TextBox`, `ComboBox` de enum, selector de referencias. El getter lee
+siempre de la entidad; el setter aplica el cambio por un callback (Dia 3: pasa por el `UndoStack`).
 
 **Agregar un tipo de entidad nuevo = escribir la clase y anotarla. Cero UI nueva.** Es el patron
 del Inspector de Unity / el Details de Unreal.
@@ -106,7 +114,7 @@ del Inspector de Unity / el Details de Unreal.
 |---|---|
 | **0** ✅ | Solucion, 4 proyectos + tests, DI/host, ventana shell, build+test verde, tooling |
 | **1** ✅ | Entidades (`Troop`/`Tower`/`Enemy`) + atributos de edicion · `ContentDatabase` · repositorio JSON async y polimorfico · `TreeView` de contenido con seleccion → Inspector |
-| **2** | Inspector por reflexion · `DataTemplateSelector` por tipo de campo · preview JSON en vivo |
+| **2** ✅ | `EditableSchema` por reflexion · Inspector con un `DataTemplate` por `FieldKind` · selector de referencias · preview JSON en vivo · ViewModels movidos a `Foundry.Presentation` (sin WPF) |
 | **3** | Undo/redo sobre todas las ediciones · validacion `INotifyDataErrorInfo` · dirty tracking · atajos |
 | **4** | Tema oscuro · busqueda en el arbol · `IContentImporter` (CSV) · "find usages" de referencias · ADRs finales |
 
@@ -116,11 +124,20 @@ del Inspector de Unity / el Details de Unreal.
   poco en la historia de ingenieria.
 - **Sin librería de UI de terceros**: el tema se hace con `ResourceDictionary` para mostrar
   dominio de recursos y estilos.
+- **Sin `DataTemplateSelector`**: los templates de campo se eligen por tipo de ViewModel, no por
+  un valor en runtime — para eso los templates implicitos (`DataType=`) son la herramienta
+  correcta. Un selector recien haria falta si el template dependiera del *contenido*.
 - **Sin integracion con control de versiones ni pipeline de build real**: se menciona como
   extension, no se implementa.
 
 ## Testing
 
-`xUnit` + `FluentAssertions`. Se testea la logica que vive en `Core` y `Application`
-(value objects, `UndoStack`, mas adelante reglas de validacion y el armado del inspector).
-Los ViewModels son testeables por construccion — es media de la razon de ser de MVVM.
+`xUnit` + `FluentAssertions`. 34 tests:
+
+- **Core** — `EntityId`, `ContentDatabase`, `EditableSchema` (inferencia de `FieldKind`, rango,
+  referencias, cache).
+- **Application** — `UndoStack`.
+- **Infrastructure** — round-trip JSON, polimorfismo `$type`, tipo desconocido falla, formato.
+- **Presentation** — `InspectorViewModel` (arma grupos/campos, editar escribe en la entidad,
+  dispara `EntityEdited`, opciones de referencia) y `MainViewModel` (arbol, seleccion →
+  inspector + preview). Sin runner de WPF gracias al split de assemblies.

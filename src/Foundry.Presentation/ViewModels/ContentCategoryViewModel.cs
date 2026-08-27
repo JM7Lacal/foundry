@@ -1,6 +1,6 @@
 using System.Collections.ObjectModel;
 
-namespace Foundry.App.ViewModels;
+namespace Foundry.Presentation.ViewModels;
 
 /// <summary>Nodo de categoria del arbol ("Tropas", "Torres", "Enemigos").</summary>
 public sealed class ContentCategoryViewModel

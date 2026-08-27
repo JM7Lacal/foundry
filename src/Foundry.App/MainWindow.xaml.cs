@@ -1,5 +1,5 @@
 using System.Windows;
-using Foundry.App.ViewModels;
+using Foundry.Presentation.ViewModels;
 
 namespace Foundry.App;
 

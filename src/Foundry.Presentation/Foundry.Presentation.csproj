@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- ViewModels y abstracciones de presentacion. SIN dependencia de WPF: se puede testear con
+       un runner de consola normal y, en teoria, reutilizar con otra tecnologia de UI. -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>Foundry.Presentation</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Mvvm" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Foundry.Core\Foundry.Core.csproj" />
+    <ProjectReference Include="..\Foundry.Application\Foundry.Application.csproj" />
+  </ItemGroup>
+
+</Project>
