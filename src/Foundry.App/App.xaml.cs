@@ -112,7 +112,8 @@ public partial class App : System.Windows.Application
         {
             case "claude-code":
             case "claudecode":
-                services.AddSingleton<IChatCompletion, ClaudeCodeChatCompletion>();
+                var command = configuration["Assistant:Command"];
+                services.AddSingleton<IChatCompletion>(_ => new ClaudeCodeChatCompletion(command));
                 break;
 
             case "ollama":
