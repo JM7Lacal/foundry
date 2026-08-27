@@ -24,6 +24,7 @@ public class MainViewModelTests
             new StubImporter(),
             new StubFilePicker(),
             new StubDialogService(),
+            new StubRecentFiles(),
             undo,
             new ContentValidator(),
             new InspectorViewModel(undo),
@@ -188,6 +189,17 @@ public class MainViewModelTests
     }
 
     [Fact]
+    public async Task Opening_a_file_adds_it_to_recents()
+    {
+        var (vm, _) = Build(SampleDatabase());
+
+        await vm.LoadFromAsync("game-a.json");
+
+        vm.RecentFiles.Should().Contain("game-a.json");
+        vm.HasRecentFiles.Should().BeTrue();
+    }
+
+    [Fact]
     public async Task SearchText_filters_the_tree()
     {
         var (vm, _) = Build(SampleDatabase());
@@ -271,6 +283,19 @@ public class MainViewModelTests
 
         public void Inform(string message, string title)
         {
+        }
+    }
+
+    private sealed class StubRecentFiles : IRecentFiles
+    {
+        private readonly List<string> _items = [];
+
+        public IReadOnlyList<string> All => _items;
+
+        public void Add(string path)
+        {
+            _items.Remove(path);
+            _items.Insert(0, path);
         }
     }
 }

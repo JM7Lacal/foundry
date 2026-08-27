@@ -22,6 +22,7 @@ public partial class MainViewModel : ObservableObject
     private readonly IContentImporter _importer;
     private readonly IFilePicker _filePicker;
     private readonly IDialogService _dialogs;
+    private readonly IRecentFiles _recentFiles;
     private readonly UndoStack _undoStack;
     private readonly ContentValidator _validator;
 
@@ -66,6 +67,7 @@ public partial class MainViewModel : ObservableObject
         IContentImporter importer,
         IFilePicker filePicker,
         IDialogService dialogs,
+        IRecentFiles recentFiles,
         UndoStack undoStack,
         ContentValidator validator,
         InspectorViewModel inspector,
@@ -76,11 +78,13 @@ public partial class MainViewModel : ObservableObject
         _importer = importer;
         _filePicker = filePicker;
         _dialogs = dialogs;
+        _recentFiles = recentFiles;
         _undoStack = undoStack;
         _validator = validator;
         Inspector = inspector;
         Assistant = assistant;
 
+        RefreshRecent();
         _undoStack.Changed += OnUndoStackChanged;
         Assistant.ProposalApplied += OnAssistantProposalApplied;
     }
@@ -92,6 +96,10 @@ public partial class MainViewModel : ObservableObject
     public AssistantViewModel Assistant { get; }
 
     public ObservableCollection<ValidationIssueViewModel> ValidationIssues { get; } = [];
+
+    public ObservableCollection<string> RecentFiles { get; } = [];
+
+    public bool HasRecentFiles => RecentFiles.Count > 0;
 
     public string ValidationSummary => ErrorCount == 0 && WarningCount == 0
         ? "Validacion: sin problemas"
@@ -116,7 +124,9 @@ public partial class MainViewModel : ObservableObject
     /// <summary>Entidad seleccionada en el arbol, o <c>null</c> si hay una categoria o nada.</summary>
     public ContentEntity? SelectedEntity => (SelectedTreeItem as EntityNodeViewModel)?.Entity;
 
-    public async Task LoadFromAsync(string path)
+    public Task LoadFromAsync(string path) => LoadFromAsync(path, remember: true);
+
+    public async Task LoadFromAsync(string path, bool remember)
     {
         StatusMessage = "Cargando...";
 
@@ -130,6 +140,12 @@ public partial class MainViewModel : ObservableObject
             Assistant.SetContext(_database);
             IsDirty = false;
             StatusMessage = $"{_database.Count} entidades cargadas.";
+
+            if (remember)
+            {
+                _recentFiles.Add(path);
+                RefreshRecent();
+            }
         }
         catch (ContentRepositoryException ex)
         {
@@ -137,6 +153,34 @@ public partial class MainViewModel : ObservableObject
         }
 
         SaveCommand.NotifyCanExecuteChanged();
+    }
+
+    [RelayCommand]
+    private async Task OpenRecent(string? path)
+    {
+        if (string.IsNullOrEmpty(path))
+        {
+            return;
+        }
+
+        if (IsDirty && !_dialogs.Confirm(
+                "Hay cambios sin guardar. ¿Descartarlos y abrir otro archivo?", "Foundry"))
+        {
+            return;
+        }
+
+        await LoadFromAsync(path).ConfigureAwait(true);
+    }
+
+    private void RefreshRecent()
+    {
+        RecentFiles.Clear();
+        foreach (var path in _recentFiles.All)
+        {
+            RecentFiles.Add(path);
+        }
+
+        OnPropertyChanged(nameof(HasRecentFiles));
     }
 
     [RelayCommand]

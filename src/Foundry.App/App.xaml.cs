@@ -86,6 +86,7 @@ public partial class App : System.Windows.Application
 
                 services.AddSingleton<IFilePicker, WpfFilePicker>();
                 services.AddSingleton<IDialogService, WpfDialogService>();
+                services.AddSingleton<IRecentFiles, JsonRecentFiles>();
                 services.AddSingleton<MainWindow>();
 
                 RegisterAssistantProvider(context.Configuration, services);
@@ -146,7 +147,7 @@ public partial class App : System.Windows.Application
         if (_host is not null && File.Exists(samplePath))
         {
             var viewModel = _host.Services.GetRequiredService<MainViewModel>();
-            await viewModel.LoadFromAsync(samplePath).ConfigureAwait(true);
+            await viewModel.LoadFromAsync(samplePath, remember: false).ConfigureAwait(true);
         }
     }
 

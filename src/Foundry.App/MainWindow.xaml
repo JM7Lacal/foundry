@@ -44,6 +44,17 @@
         <Menu DockPanel.Dock="Top">
             <MenuItem Header="_Archivo">
                 <MenuItem Header="_Abrir..." InputGestureText="Ctrl+O" Command="{Binding OpenCommand}" />
+                <MenuItem Header="_Recientes" ItemsSource="{Binding RecentFiles}"
+                          IsEnabled="{Binding HasRecentFiles}">
+                    <MenuItem.ItemContainerStyle>
+                        <Style TargetType="MenuItem">
+                            <Setter Property="Header" Value="{Binding}" />
+                            <Setter Property="Command"
+                                    Value="{Binding DataContext.OpenRecentCommand, RelativeSource={RelativeSource AncestorType=Window}}" />
+                            <Setter Property="CommandParameter" Value="{Binding}" />
+                        </Style>
+                    </MenuItem.ItemContainerStyle>
+                </MenuItem>
                 <MenuItem Header="_Guardar" InputGestureText="Ctrl+S" Command="{Binding SaveCommand}" />
                 <Separator />
                 <MenuItem Header="_Importar CSV..." Command="{Binding ImportCsvCommand}" />
