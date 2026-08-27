@@ -87,6 +87,7 @@ public partial class App : System.Windows.Application
                 services.AddSingleton<IFilePicker, WpfFilePicker>();
                 services.AddSingleton<IDialogService, WpfDialogService>();
                 services.AddSingleton<IRecentFiles, JsonRecentFiles>();
+                services.AddSingleton<IThemeService, WpfThemeService>();
                 services.AddSingleton<MainWindow>();
 
                 RegisterAssistantProvider(context.Configuration, services);
@@ -94,6 +95,8 @@ public partial class App : System.Windows.Application
             .Build();
 
         _host.Start();
+
+        _host.Services.GetRequiredService<IThemeService>(); // aplica la paleta guardada antes de mostrar la ventana
         _host.Services.GetRequiredService<MainWindow>().Show();
 
         _ = LoadBundledSampleAsync();

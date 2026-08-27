@@ -23,10 +23,12 @@ public partial class MainViewModel : ObservableObject
     private readonly IFilePicker _filePicker;
     private readonly IDialogService _dialogs;
     private readonly IRecentFiles _recentFiles;
+    private readonly IThemeService _theme;
     private readonly UndoStack _undoStack;
     private readonly ContentValidator _validator;
 
     private ContentDatabase _database = new();
+    private readonly Dictionary<EntityId, NodeBadge> _badgeByEntity = [];
 
     [ObservableProperty]
     private int _entityCount;
@@ -68,6 +70,7 @@ public partial class MainViewModel : ObservableObject
         IFilePicker filePicker,
         IDialogService dialogs,
         IRecentFiles recentFiles,
+        IThemeService theme,
         UndoStack undoStack,
         ContentValidator validator,
         InspectorViewModel inspector,
@@ -79,6 +82,7 @@ public partial class MainViewModel : ObservableObject
         _filePicker = filePicker;
         _dialogs = dialogs;
         _recentFiles = recentFiles;
+        _theme = theme;
         _undoStack = undoStack;
         _validator = validator;
         Inspector = inspector;
@@ -349,6 +353,15 @@ public partial class MainViewModel : ObservableObject
         StatusMessage = ValidationSummary;
     }
 
+    public bool IsDarkTheme => _theme.IsDark;
+
+    [RelayCommand]
+    private void ToggleTheme()
+    {
+        _theme.Toggle();
+        OnPropertyChanged(nameof(IsDarkTheme));
+    }
+
     [RelayCommand]
     private void GoToIssue(ValidationIssueViewModel? issue)
     {
@@ -377,6 +390,36 @@ public partial class MainViewModel : ObservableObject
         ErrorCount = issues.Count(issue => issue.Severity == ValidationSeverity.Error);
         WarningCount = issues.Count - ErrorCount;
         OnPropertyChanged(nameof(ValidationSummary));
+
+        _badgeByEntity.Clear();
+        foreach (var issue in issues)
+        {
+            var badge = issue.Severity == ValidationSeverity.Error ? NodeBadge.Error : NodeBadge.Warning;
+            if (badge > _badgeByEntity.GetValueOrDefault(issue.EntityId))
+            {
+                _badgeByEntity[issue.EntityId] = badge;
+            }
+        }
+
+        ApplyBadges();
+    }
+
+    private void ApplyBadges()
+    {
+        foreach (var category in Categories)
+        {
+            var worst = NodeBadge.None;
+            foreach (var node in category.Entities)
+            {
+                node.Badge = _badgeByEntity.GetValueOrDefault(node.Entity.Id);
+                if (node.Badge > worst)
+                {
+                    worst = node.Badge;
+                }
+            }
+
+            category.Badge = worst;
+        }
     }
 
     private bool CanSave() => _database.Count > 0;
@@ -494,6 +537,7 @@ public partial class MainViewModel : ObservableObject
         }
 
         TreeIsEmpty = Categories.Count == 0;
+        ApplyBadges();
     }
 
     private static bool Matches(ContentEntity entity, string filter) =>

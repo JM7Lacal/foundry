@@ -17,16 +17,25 @@
         <HierarchicalDataTemplate DataType="{x:Type vm:ContentCategoryViewModel}"
                                   ItemsSource="{Binding Entities}">
             <StackPanel Orientation="Horizontal">
-                <TextBlock Text="&#xE8B7;" FontFamily="{StaticResource IconFont}" FontSize="13"
-                           Foreground="{StaticResource TextMutedBrush}" VerticalAlignment="Center" Margin="0,0,6,0" />
+                <TextBlock Text="{Binding Name, Converter={x:Static conv:CategoryGlyphConverter.Instance}}"
+                           FontFamily="{StaticResource IconFont}" FontSize="13"
+                           Foreground="{DynamicResource TextMutedBrush}" VerticalAlignment="Center" Margin="0,0,7,0" />
                 <TextBlock Text="{Binding Name}" FontWeight="SemiBold" VerticalAlignment="Center" />
                 <TextBlock Text="{Binding Entities.Count, StringFormat=' ({0})'}"
                            Style="{StaticResource Muted}" VerticalAlignment="Center" />
+                <Ellipse Width="6" Height="6" Margin="7,0,0,0" VerticalAlignment="Center"
+                         Fill="{Binding IsErrorBadge, Converter={x:Static conv:IssueSeverityBrushConverter.Instance}}"
+                         Visibility="{Binding HasIssue, Converter={x:Static conv:BooleanToVisibilityConverter.VisibleWhenTrue}}" />
             </StackPanel>
         </HierarchicalDataTemplate>
 
         <DataTemplate DataType="{x:Type vm:EntityNodeViewModel}">
-            <TextBlock Text="{Binding DisplayName}" Padding="2,1" />
+            <StackPanel Orientation="Horizontal">
+                <TextBlock Text="{Binding DisplayName}" Padding="2,1" VerticalAlignment="Center" />
+                <Ellipse Width="6" Height="6" Margin="7,0,0,0" VerticalAlignment="Center"
+                         Fill="{Binding IsErrorBadge, Converter={x:Static conv:IssueSeverityBrushConverter.Instance}}"
+                         Visibility="{Binding HasIssue, Converter={x:Static conv:BooleanToVisibilityConverter.VisibleWhenTrue}}" />
+            </StackPanel>
         </DataTemplate>
     </Window.Resources>
 
@@ -81,6 +90,10 @@
             <MenuItem Header="_Herramientas">
                 <MenuItem Header="_Validar contenido" Command="{Binding ValidateCommand}" />
             </MenuItem>
+            <MenuItem Header="_Ver">
+                <MenuItem Header="Tema _oscuro" IsCheckable="True" IsChecked="{Binding IsDarkTheme, Mode=OneWay}"
+                          Command="{Binding ToggleThemeCommand}" />
+            </MenuItem>
         </Menu>
 
         <ToolBarTray DockPanel.Dock="Top" IsLocked="True">
@@ -133,16 +146,32 @@
                         <TextBlock Text="Validar" VerticalAlignment="Center" />
                     </StackPanel>
                 </Button>
+
+                <Button Style="{StaticResource ToolButton}" Command="{Binding ToggleThemeCommand}"
+                        ToolTip="Cambiar tema claro / oscuro" HorizontalAlignment="Right">
+                    <TextBlock>
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock" BasedOn="{StaticResource ToolIcon}">
+                                <Setter Property="Text" Value="&#xE706;" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsDarkTheme}" Value="True">
+                                        <Setter Property="Text" Value="&#xE708;" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                </Button>
             </ToolBar>
         </ToolBarTray>
 
         <Expander DockPanel.Dock="Bottom" IsExpanded="{Binding IssuesPanelOpen}"
-                  Background="{StaticResource SurfaceBrush}" BorderBrush="{StaticResource BorderBrush}"
+                  Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}"
                   BorderThickness="0,1,0,0" Padding="10,4">
             <Expander.Header>
                 <StackPanel Orientation="Horizontal">
                     <TextBlock Text="&#xE9D5;" FontFamily="{StaticResource IconFont}" FontSize="13"
-                               Margin="0,0,8,0" VerticalAlignment="Center" Foreground="{StaticResource TextMutedBrush}" />
+                               Margin="0,0,8,0" VerticalAlignment="Center" Foreground="{DynamicResource TextMutedBrush}" />
                     <TextBlock Text="{Binding ValidationSummary}" VerticalAlignment="Center" />
                 </StackPanel>
             </Expander.Header>
@@ -181,7 +210,7 @@
             <StatusBarItem HorizontalAlignment="Right">
                 <StackPanel Orientation="Horizontal">
                     <TextBlock Text="{Binding EntityCount, StringFormat='{}{0} entidades'}" />
-                    <TextBlock Text="  ·  sin guardar" Foreground="{StaticResource WarnBrush}" FontWeight="SemiBold"
+                    <TextBlock Text="  ·  sin guardar" Foreground="{DynamicResource WarnBrush}" FontWeight="SemiBold"
                                Visibility="{Binding IsDirty, Converter={x:Static conv:BooleanToVisibilityConverter.VisibleWhenTrue}}" />
                 </StackPanel>
             </StatusBarItem>
@@ -203,7 +232,7 @@
                     <Grid DockPanel.Dock="Top" Margin="0,0,0,8">
                         <TextBox Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" Padding="24,3,6,3" />
                         <TextBlock Text="&#xE721;" FontFamily="{StaticResource IconFont}" FontSize="12"
-                                   Foreground="{StaticResource TextMutedBrush}"
+                                   Foreground="{DynamicResource TextMutedBrush}"
                                    VerticalAlignment="Center" Margin="7,0,0,0" IsHitTestVisible="False" />
                     </Grid>
 
@@ -222,7 +251,7 @@
                         <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Margin="12"
                                     Visibility="{Binding TreeIsEmpty, Converter={x:Static conv:BooleanToVisibilityConverter.VisibleWhenTrue}}">
                             <TextBlock Text="&#xE7C3;" FontFamily="{StaticResource IconFont}" FontSize="26"
-                                       Foreground="{StaticResource TextMutedBrush}" HorizontalAlignment="Center" />
+                                       Foreground="{DynamicResource TextMutedBrush}" HorizontalAlignment="Center" />
                             <TextBlock Text="Sin resultados" Style="{StaticResource Muted}"
                                        HorizontalAlignment="Center" Margin="0,6,0,0" />
                         </StackPanel>

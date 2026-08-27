@@ -25,6 +25,7 @@ public class MainViewModelTests
             new StubFilePicker(),
             new StubDialogService(),
             new StubRecentFiles(),
+            new StubThemeService(),
             undo,
             new ContentValidator(),
             new InspectorViewModel(undo),
@@ -177,6 +178,29 @@ public class MainViewModelTests
     }
 
     [Fact]
+    public void ToggleTheme_flips_the_theme_service()
+    {
+        var (vm, _) = Build(SampleDatabase());
+        vm.IsDarkTheme.Should().BeFalse();
+
+        vm.ToggleThemeCommand.Execute(null);
+
+        vm.IsDarkTheme.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Entities_with_a_validation_error_get_an_error_badge_in_the_tree()
+    {
+        var vm = await LoadedWithArcherSelected(SampleDatabase());
+        DamageField(vm).Value = 999999;
+
+        var node = vm.Categories.SelectMany(c => c.Entities).Single(n => n.Entity.Name == "Arquero");
+        node.HasIssue.Should().BeTrue();
+        node.IsErrorBadge.Should().BeTrue();
+        vm.Categories.Single(c => c.Name == "Tropas").HasIssue.Should().BeTrue();
+    }
+
+    [Fact]
     public async Task GoToIssue_selects_the_offending_entity()
     {
         var vm = await LoadedWithArcherSelected(SampleDatabase());
@@ -297,5 +321,12 @@ public class MainViewModelTests
             _items.Remove(path);
             _items.Insert(0, path);
         }
+    }
+
+    private sealed class StubThemeService : IThemeService
+    {
+        public bool IsDark { get; private set; }
+
+        public void Toggle() => IsDark = !IsDark;
     }
 }

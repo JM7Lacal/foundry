@@ -7,10 +7,12 @@ namespace Foundry.Presentation.ViewModels;
 public sealed partial class ContentCategoryViewModel : ObservableObject
 {
     [ObservableProperty]
-    private bool _isExpanded = true;
+    private bool _isSelected;
 
     [ObservableProperty]
-    private bool _isSelected;
+    [NotifyPropertyChangedFor(nameof(HasIssue))]
+    [NotifyPropertyChangedFor(nameof(IsErrorBadge))]
+    private NodeBadge _badge;
 
     public ContentCategoryViewModel(string name)
     {
@@ -20,4 +22,8 @@ public sealed partial class ContentCategoryViewModel : ObservableObject
     public string Name { get; }
 
     public ObservableCollection<EntityNodeViewModel> Entities { get; } = [];
+
+    public bool HasIssue => Badge != NodeBadge.None;
+
+    public bool IsErrorBadge => Badge == NodeBadge.Error;
 }

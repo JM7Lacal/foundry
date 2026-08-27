@@ -1,35 +1,48 @@
-# 0010 — Theming: pasada de diseño clara, sin tema oscuro
+# 0010 — Theming: sistema de paleta con Light/Dark en runtime
 
-**Estado:** aceptado · Dia 4
+**Estado:** aceptado · revisado post pasada de UX
 
 ## Contexto
 
-El plan original mencionaba un tema oscuro. Un tema oscuro **completo** en WPF exige reescribir
-el `ControlTemplate` de casi todos los controles (los templates por defecto tienen colores
-horneados que un simple cambio de brush no alcanza a cubrir), o adoptar una libreria de UI.
+Version original de este ADR: *"sin tema oscuro — necesita `ControlTemplate`s para cada control o
+una libreria"*. Eso cambio: la pasada de UX (M1) ya reescribio los `ControlTemplate` de los
+controles que Foundry usa (`Button`, `ToolBar`, `TabItem`, `TreeViewItem`, `ListBoxItem`) con una
+paleta de brushes con nombre. Con eso, agregar un tema oscuro pasa de "semanas" a "una paleta mas".
+
+Y un tema oscuro **bien hecho** es material de estudio y defensa para la entrevista:
+`ResourceDictionary`, merge de diccionarios, `DynamicResource` vs `StaticResource`, y por que el
+segundo no sirve para cambiar de tema en caliente.
 
 ## Decision
 
-- **No** hacer tema oscuro. Hacer una **pasada de diseño sobre el tema claro**:
-  `Themes/Foundry.xaml` (merged en `App.xaml`) con una paleta con nombre (`AccentBrush`,
-  `SurfaceBrush`, `WindowBrush`, `BorderBrush`, `DangerBrush`, `MutedBrush`), tipografia
-  (`Segoe UI`, `TextFormattingMode=Display`) y un `GroupBox` mas sobrio (header en gris medio,
-  semibold).
-- Los estilos son acotados y sin `ControlTemplate`: cambian fondo/tipografia, no la mecanica de
-  los controles. Bajo riesgo de romper nada.
+- `Themes/Controls.xaml` — los estilos y templates, **agnosticos de paleta**. Cada color se
+  resuelve con `{DynamicResource XxxBrush}`.
+- `Themes/Palette.Light.xaml` y `Themes/Palette.Dark.xaml` — solo `SolidColorBrush`, con las
+  **mismas claves**. Dark es neutro tipo IDE (VS Code / Rider), sin negros puros.
+- `App.xaml` mergea `Controls.xaml` + `Palette.Light.xaml`.
+- `WpfThemeService` (`IThemeService` en Presentation) intercambia el diccionario de paleta en
+  `Application.Current.Resources.MergedDictionaries` en runtime. Como todo referencia los brushes
+  con `DynamicResource`, el cambio se ve al instante, sin reiniciar. La preferencia se persiste en
+  `%APPDATA%\Foundry\theme.txt` y se aplica antes de mostrar la ventana.
+- Toggle en la toolbar (sol/luna) y en el menu *Ver*. `MainViewModel.ToggleThemeCommand` habla
+  con `IThemeService` — el VM no toca WPF.
 
 ## Consecuencias
 
-- **+** La app se ve intencional y coherente, no "WPF crudo".
-- **+** La paleta con nombre deja el tema oscuro como trabajo futuro acotado (redefinir los
-  brushes en un `Dark.xaml` y togglear el `MergedDictionary`).
-- **−** No hay modo oscuro. Para tooling interno que se mira todo el dia, es una carencia real;
-  se asume a cambio de no enviar un tema oscuro a medias.
+- **+** Light y Dark completos, cambio en caliente. Demuestra el manejo de recursos/estilos de
+  WPF de punta a punta.
+- **+** Agregar un tercer tema = un `Palette.*.xaml` mas.
+- **+** `IThemeService` es un puerto: el VM y sus tests no dependen de WPF.
+- **−** Los popups de submenu del `Menu` y los `ScrollBar` siguen con templates del sistema; en
+  oscuro se ven un poco mas claros que el resto. Re-templar `Menu`/`ScrollBar` es mucho XAML para
+  poco valor; se acepta el compromiso.
+- **−** Cada color debe referenciarse con `DynamicResource` sin excepcion; un `StaticResource`
+  perdido no cambia al togglear.
 
 ## Alternativas consideradas
 
-- **Libreria de UI** (`Wpf.Ui` / MahApps / Fluent): da tema oscuro y claro completos, pero
-  agrega una dependencia grande que habria que justificar (ver
-  [ADR 0002](0002-mvvm-community-toolkit.md), misma linea de "sin frameworks pesados"). Para
-  una pieza de portfolio pesa mas mostrar dominio de `ResourceDictionary` y `Style`.
-- **Tema oscuro a mano**: semanas de `ControlTemplate`. Desproporcionado.
+- **Libreria de UI** (`Wpf.Ui` / MahApps): da los dos temas gratis pero es una dependencia grande
+  que contradice la linea del proyecto ([ADR 0002](0002-mvvm-community-toolkit.md)). Ademas se
+  pierde el ejercicio de armar el sistema de temas a mano.
+- **`ThemeDictionaries`** (el mecanismo nuevo de WPF/WinUI): mas declarativo pero con menos
+  control y peor soporte en .NET 8 WPF que el swap manual de `MergedDictionaries`.

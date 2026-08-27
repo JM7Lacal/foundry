@@ -40,7 +40,7 @@
 
         <ScrollViewer VerticalScrollBarVisibility="Auto">
             <StackPanel>
-                <TextBlock Text="{Binding ErrorMessage}" Foreground="{StaticResource DangerBrush}"
+                <TextBlock Text="{Binding ErrorMessage}" Foreground="{DynamicResource DangerBrush}"
                            TextWrapping="Wrap" Margin="0,0,0,8"
                            Visibility="{Binding ErrorMessage, Converter={x:Static conv:StringToVisibilityConverter.Instance}}" />
 
@@ -53,7 +53,7 @@
                 <StackPanel Margin="0,12,0,0"
                             Visibility="{Binding HasProposal, Converter={x:Static conv:BooleanToVisibilityConverter.VisibleWhenTrue}}">
                     <TextBlock Text="ENTIDADES PROPUESTAS" Style="{StaticResource SectionCaption}" Margin="0,0,0,6" />
-                    <Border BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,1,0,0" Margin="0,0,0,6" />
+                    <Border BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0" Margin="0,0,0,6" />
                     <ItemsControl ItemsSource="{Binding ProposalPreview}">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>

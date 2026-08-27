@@ -16,7 +16,7 @@
         <Style TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
             <Style.Triggers>
                 <Trigger Property="Validation.HasError" Value="True">
-                    <Setter Property="BorderBrush" Value="{StaticResource DangerBrush}" />
+                    <Setter Property="BorderBrush" Value="{DynamicResource DangerBrush}" />
                     <Setter Property="ToolTip"
                             Value="{Binding (Validation.Errors)/ErrorContent, RelativeSource={RelativeSource Self}}" />
                 </Trigger>
@@ -81,7 +81,7 @@
         <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Margin="16"
                     Visibility="{Binding HasEntity, Converter={x:Static conv:BooleanToVisibilityConverter.VisibleWhenFalse}}">
             <TextBlock Text="&#xE7C4;" FontFamily="{StaticResource IconFont}" FontSize="30"
-                       Foreground="{StaticResource TextMutedBrush}" HorizontalAlignment="Center" />
+                       Foreground="{DynamicResource TextMutedBrush}" HorizontalAlignment="Center" />
             <TextBlock Text="Seleccioná una entidad en el arbol" Style="{StaticResource Muted}"
                        HorizontalAlignment="Center" Margin="0,8,0,0" TextWrapping="Wrap" TextAlignment="Center" />
         </StackPanel>
@@ -97,7 +97,7 @@
                         <DataTemplate>
                             <StackPanel Margin="0,0,0,14">
                                 <TextBlock Text="{Binding Name}" Style="{StaticResource SectionCaption}" Margin="0,0,0,6" />
-                                <Border BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,1,0,0" Margin="0,0,0,6" />
+                                <Border BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0" Margin="0,0,0,6" />
 
                                 <ItemsControl ItemsSource="{Binding Fields}">
                                     <ItemsControl.ItemTemplate>
@@ -110,16 +110,16 @@
 
                                                 <TextBlock VerticalAlignment="Center" Margin="0,0,8,0"
                                                            TextTrimming="CharacterEllipsis"
-                                                           Foreground="{StaticResource TextMutedBrush}"
+                                                           Foreground="{DynamicResource TextMutedBrush}"
                                                            ToolTip="{Binding Description}">
                                                     <Run Text="{Binding Label, Mode=OneWay}" />
-                                                    <Run Text="{Binding RequiredMark, Mode=OneWay}" Foreground="{StaticResource DangerBrush}" />
+                                                    <Run Text="{Binding RequiredMark, Mode=OneWay}" Foreground="{DynamicResource DangerBrush}" />
                                                 </TextBlock>
 
                                                 <StackPanel Grid.Column="1">
                                                     <ContentControl Content="{Binding}" />
                                                     <TextBlock Text="{Binding ErrorText}"
-                                                               Foreground="{StaticResource DangerBrush}" FontSize="11"
+                                                               Foreground="{DynamicResource DangerBrush}" FontSize="11"
                                                                TextWrapping="Wrap" Margin="0,3,0,0"
                                                                Visibility="{Binding HasErrors, Converter={x:Static conv:BooleanToVisibilityConverter.VisibleWhenTrue}}" />
                                                 </StackPanel>
@@ -135,7 +135,7 @@
                 <StackPanel Margin="0,2,0,0"
                             Visibility="{Binding HasUsages, Converter={x:Static conv:BooleanToVisibilityConverter.VisibleWhenTrue}}">
                     <TextBlock Text="USADO POR" Style="{StaticResource SectionCaption}" Margin="0,0,0,6" />
-                    <Border BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,1,0,0" Margin="0,0,0,6" />
+                    <Border BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0" Margin="0,0,0,6" />
                     <ItemsControl ItemsSource="{Binding Usages}">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
