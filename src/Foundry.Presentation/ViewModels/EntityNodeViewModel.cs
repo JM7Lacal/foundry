@@ -4,8 +4,12 @@ using Foundry.Core.Content;
 namespace Foundry.Presentation.ViewModels;
 
 /// <summary>Nodo hoja del arbol de contenido: envuelve una entidad.</summary>
-public sealed class EntityNodeViewModel : ObservableObject
+public sealed partial class EntityNodeViewModel : ObservableObject
 {
+    /// <summary>Enlazado a <c>TreeViewItem.IsSelected</c> (dos vias) para poder seleccionar desde el ViewModel.</summary>
+    [ObservableProperty]
+    private bool _isSelected;
+
     public EntityNodeViewModel(ContentEntity entity)
     {
         Entity = entity;

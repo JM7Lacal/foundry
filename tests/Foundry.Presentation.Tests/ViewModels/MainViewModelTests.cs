@@ -100,6 +100,57 @@ public class MainViewModelTests
     }
 
     [Fact]
+    public async Task New_entity_adds_it_to_the_tree_selected_and_undoable()
+    {
+        var vm = await LoadedWithArcherSelected(SampleDatabase());
+        var before = vm.Categories.SelectMany(c => c.Entities).Count();
+
+        vm.NewEntityCommand.Execute("tower");
+
+        vm.Categories.SelectMany(c => c.Entities).Should().HaveCount(before + 1);
+        vm.SelectedEntity.Should().BeOfType<Tower>();
+        vm.IsDirty.Should().BeTrue();
+
+        vm.UndoCommand.Execute(null);
+        vm.Categories.SelectMany(c => c.Entities).Should().HaveCount(before);
+    }
+
+    [Fact]
+    public async Task Duplicate_entity_copies_the_stats_with_a_new_id()
+    {
+        var vm = await LoadedWithArcherSelected(SampleDatabase());
+        DamageField(vm).Value = 33;
+
+        vm.DuplicateEntityCommand.Execute(null);
+
+        var copy = (Troop)vm.SelectedEntity!;
+        copy.Id.Should().NotBe(new EntityId("troop.archer"));
+        copy.Damage.Should().Be(33);
+        copy.Name.Should().Contain("copia");
+    }
+
+    [Fact]
+    public async Task Delete_entity_removes_it_and_undo_brings_it_back()
+    {
+        var vm = await LoadedWithArcherSelected(SampleDatabase());
+
+        vm.DeleteEntityCommand.Execute(null);
+
+        vm.Categories.SelectMany(c => c.Entities).Should().NotContain(n => n.Entity.Name == "Arquero");
+
+        vm.UndoCommand.Execute(null);
+        vm.Categories.SelectMany(c => c.Entities).Should().Contain(n => n.Entity.Name == "Arquero");
+    }
+
+    [Fact]
+    public void New_entity_menu_options_come_from_the_catalog()
+    {
+        var (vm, _) = Build(SampleDatabase());
+
+        vm.EntityTypes.Select(o => o.Discriminator).Should().BeEquivalentTo("troop", "tower", "enemy");
+    }
+
+    [Fact]
     public async Task SearchText_filters_the_tree()
     {
         var (vm, _) = Build(SampleDatabase());

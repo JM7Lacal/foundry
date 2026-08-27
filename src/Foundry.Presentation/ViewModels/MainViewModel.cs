@@ -77,6 +77,13 @@ public partial class MainViewModel : ObservableObject
 
     public AssistantViewModel Assistant { get; }
 
+    /// <summary>Tipos de entidad para el menu "Nueva entidad". Se arma solo del catalogo.</summary>
+    public IReadOnlyList<EntityTypeOption> EntityTypes { get; } = ContentEntityCatalog.Types
+        .Select(type => new EntityTypeOption(
+            ContentEntityCatalog.DiscriminatorFor(type),
+            ((ContentEntity)Activator.CreateInstance(type)!).CategoryName))
+        .ToList();
+
     public string Title
     {
         get
@@ -169,6 +176,66 @@ public partial class MainViewModel : ObservableObject
     private void Redo() => _undoStack.Redo();
 
     [RelayCommand]
+    private void NewEntity(string? discriminator)
+    {
+        var type = discriminator is null ? null : ContentEntityCatalog.Resolve(discriminator);
+        if (type is null)
+        {
+            return;
+        }
+
+        var entity = (ContentEntity)Activator.CreateInstance(type)!;
+        entity.Id = NextId(discriminator!);
+
+        _undoStack.Execute(new AddEntitiesAction(_database, [entity]));
+        RebuildTree();
+        SelectEntity(entity.Id);
+        StatusMessage = $"Nueva entidad {entity.Id}. Poné un nombre en el Inspector.";
+    }
+
+    [RelayCommand(CanExecute = nameof(HasSelectedEntity))]
+    private void DuplicateEntity()
+    {
+        if (SelectedEntity is null)
+        {
+            return;
+        }
+
+        var copy = ContentCloner.Clone(SelectedEntity);
+        copy.Id = NextId(ContentEntityCatalog.DiscriminatorFor(copy.GetType()));
+        copy.Name = string.IsNullOrWhiteSpace(SelectedEntity.Name)
+            ? "Copia"
+            : $"{SelectedEntity.Name} (copia)";
+
+        _undoStack.Execute(new AddEntitiesAction(_database, [copy]));
+        RebuildTree();
+        SelectEntity(copy.Id);
+        StatusMessage = $"Duplicada como {copy.Id}.";
+    }
+
+    [RelayCommand(CanExecute = nameof(HasSelectedEntity))]
+    private void DeleteEntity()
+    {
+        var entity = SelectedEntity;
+        if (entity is null)
+        {
+            return;
+        }
+
+        var referrers = ReferenceGraph.ReferrersOf(entity.Id, _database);
+        if (referrers.Count > 0 && !_dialogs.Confirm(
+                $"{referrers.Count} entidad(es) referencian a «{entity.Name}». ¿Eliminar igual?", "Foundry"))
+        {
+            return;
+        }
+
+        SelectedTreeItem = null;
+        _undoStack.Execute(new RemoveEntitiesAction(_database, [entity]));
+        RebuildTree();
+        StatusMessage = $"Eliminada {entity.Id}.";
+    }
+
+    [RelayCommand]
     private void ImportCsv()
     {
         if (IsDirty && !_dialogs.Confirm(
@@ -235,11 +302,44 @@ public partial class MainViewModel : ObservableObject
 
     private bool CanRedo() => _undoStack.CanRedo;
 
+    private bool HasSelectedEntity() => SelectedEntity is not null;
+
     partial void OnSelectedTreeItemChanged(object? value)
     {
         OnPropertyChanged(nameof(SelectedEntity));
         Inspector.Load(SelectedEntity, _database);
         UpdatePreview();
+        DuplicateEntityCommand.NotifyCanExecuteChanged();
+        DeleteEntityCommand.NotifyCanExecuteChanged();
+    }
+
+    private EntityId NextId(string discriminator)
+    {
+        var baseId = $"{discriminator}.nuevo";
+        if (!_database.Contains(new EntityId(baseId)))
+        {
+            return new EntityId(baseId);
+        }
+
+        for (var i = 2; ; i++)
+        {
+            var candidate = new EntityId($"{baseId}-{i}");
+            if (!_database.Contains(candidate))
+            {
+                return candidate;
+            }
+        }
+    }
+
+    private void SelectEntity(EntityId id)
+    {
+        var node = Categories.SelectMany(category => category.Entities)
+            .FirstOrDefault(n => n.Entity.Id.Equals(id));
+        if (node is not null)
+        {
+            node.IsSelected = true;
+            SelectedTreeItem = node;
+        }
     }
 
     partial void OnCurrentFilePathChanged(string? value) => OnPropertyChanged(nameof(Title));
@@ -314,3 +414,6 @@ public partial class MainViewModel : ObservableObject
         || entity.Name.Contains(filter, StringComparison.CurrentCultureIgnoreCase)
         || entity.Id.Value.Contains(filter, StringComparison.OrdinalIgnoreCase);
 }
+
+/// <summary>Una opcion del menu "Nueva entidad": discriminador + etiqueta visible.</summary>
+public sealed record EntityTypeOption(string Discriminator, string Label);

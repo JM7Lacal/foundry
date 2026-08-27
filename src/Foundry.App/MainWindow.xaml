@@ -28,6 +28,8 @@
         <KeyBinding Modifiers="Control" Key="S" Command="{Binding SaveCommand}" />
         <KeyBinding Modifiers="Control" Key="Z" Command="{Binding UndoCommand}" />
         <KeyBinding Modifiers="Control" Key="Y" Command="{Binding RedoCommand}" />
+        <KeyBinding Modifiers="Control" Key="D" Command="{Binding DuplicateEntityCommand}" />
+        <KeyBinding Key="Delete" Command="{Binding DeleteEntityCommand}" />
     </Window.InputBindings>
 
     <DockPanel>
@@ -43,6 +45,19 @@
             <MenuItem Header="_Editar">
                 <MenuItem Header="_Deshacer" InputGestureText="Ctrl+Z" Command="{Binding UndoCommand}" />
                 <MenuItem Header="_Rehacer" InputGestureText="Ctrl+Y" Command="{Binding RedoCommand}" />
+                <Separator />
+                <MenuItem Header="_Nueva entidad" ItemsSource="{Binding EntityTypes}">
+                    <MenuItem.ItemContainerStyle>
+                        <Style TargetType="MenuItem">
+                            <Setter Property="Header" Value="{Binding Label}" />
+                            <Setter Property="Command"
+                                    Value="{Binding DataContext.NewEntityCommand, RelativeSource={RelativeSource AncestorType=Window}}" />
+                            <Setter Property="CommandParameter" Value="{Binding Discriminator}" />
+                        </Style>
+                    </MenuItem.ItemContainerStyle>
+                </MenuItem>
+                <MenuItem Header="_Duplicar" InputGestureText="Ctrl+D" Command="{Binding DuplicateEntityCommand}" />
+                <MenuItem Header="_Eliminar" InputGestureText="Supr" Command="{Binding DeleteEntityCommand}" />
             </MenuItem>
             <MenuItem Header="_Herramientas">
                 <MenuItem Header="_Validar contenido" Command="{Binding ValidateCommand}" />
@@ -70,7 +85,13 @@
                     <TreeView ItemsSource="{Binding Categories}"
                               behaviors:TreeViewSelectionBehavior.TrackSelection="True"
                               behaviors:TreeViewSelectionBehavior.SelectedItem="{Binding SelectedTreeItem, Mode=OneWayToSource}"
-                              BorderThickness="0" Background="Transparent" />
+                              BorderThickness="0" Background="Transparent">
+                        <TreeView.ItemContainerStyle>
+                            <Style TargetType="TreeViewItem">
+                                <Setter Property="IsSelected" Value="{Binding IsSelected, Mode=TwoWay}" />
+                            </Style>
+                        </TreeView.ItemContainerStyle>
+                    </TreeView>
                 </DockPanel>
             </GroupBox>
 
