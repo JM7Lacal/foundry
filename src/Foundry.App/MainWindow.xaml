@@ -6,20 +6,27 @@
         xmlns:vm="clr-namespace:Foundry.Presentation.ViewModels;assembly=Foundry.Presentation"
         xmlns:views="clr-namespace:Foundry.App.Views"
         xmlns:behaviors="clr-namespace:Foundry.App.Behaviors"
+        xmlns:conv="clr-namespace:Foundry.App.Converters"
         mc:Ignorable="d"
         d:DataContext="{d:DesignInstance Type=vm:MainViewModel}"
         Title="{Binding Title}"
-        Height="640" Width="1040"
+        Height="720" Width="1180" MinHeight="560" MinWidth="920"
         WindowStartupLocation="CenterScreen">
 
     <Window.Resources>
         <HierarchicalDataTemplate DataType="{x:Type vm:ContentCategoryViewModel}"
                                   ItemsSource="{Binding Entities}">
-            <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
+            <StackPanel Orientation="Horizontal">
+                <TextBlock Text="&#xE8B7;" FontFamily="{StaticResource IconFont}" FontSize="13"
+                           Foreground="{StaticResource TextMutedBrush}" VerticalAlignment="Center" Margin="0,0,6,0" />
+                <TextBlock Text="{Binding Name}" FontWeight="SemiBold" VerticalAlignment="Center" />
+                <TextBlock Text="{Binding Entities.Count, StringFormat=' ({0})'}"
+                           Style="{StaticResource Muted}" VerticalAlignment="Center" />
+            </StackPanel>
         </HierarchicalDataTemplate>
 
         <DataTemplate DataType="{x:Type vm:EntityNodeViewModel}">
-            <TextBlock Text="{Binding DisplayName}" />
+            <TextBlock Text="{Binding DisplayName}" Padding="2,1" />
         </DataTemplate>
     </Window.Resources>
 
@@ -33,6 +40,7 @@
     </Window.InputBindings>
 
     <DockPanel>
+
         <Menu DockPanel.Dock="Top">
             <MenuItem Header="_Archivo">
                 <MenuItem Header="_Abrir..." InputGestureText="Ctrl+O" Command="{Binding OpenCommand}" />
@@ -64,62 +72,144 @@
             </MenuItem>
         </Menu>
 
+        <ToolBarTray DockPanel.Dock="Top" IsLocked="True">
+            <ToolBar>
+                <Button Style="{StaticResource ToolButton}" Command="{Binding OpenCommand}" ToolTip="Abrir (Ctrl+O)">
+                    <TextBlock Text="&#xE8E5;" Style="{StaticResource ToolIcon}" />
+                </Button>
+                <Button Style="{StaticResource ToolButton}" Command="{Binding SaveCommand}" ToolTip="Guardar (Ctrl+S)">
+                    <TextBlock Text="&#xE74E;" Style="{StaticResource ToolIcon}" />
+                </Button>
+
+                <Separator Style="{StaticResource ToolSeparator}" />
+
+                <Menu Background="Transparent" VerticalAlignment="Center">
+                    <MenuItem ToolTip="Nueva entidad" ItemsSource="{Binding EntityTypes}" Padding="8,4">
+                        <MenuItem.Header>
+                            <TextBlock Text="&#xE710;" Style="{StaticResource ToolIcon}" />
+                        </MenuItem.Header>
+                        <MenuItem.ItemContainerStyle>
+                            <Style TargetType="MenuItem">
+                                <Setter Property="Header" Value="{Binding Label}" />
+                                <Setter Property="Command"
+                                        Value="{Binding DataContext.NewEntityCommand, RelativeSource={RelativeSource AncestorType=Window}}" />
+                                <Setter Property="CommandParameter" Value="{Binding Discriminator}" />
+                            </Style>
+                        </MenuItem.ItemContainerStyle>
+                    </MenuItem>
+                </Menu>
+                <Button Style="{StaticResource ToolButton}" Command="{Binding DuplicateEntityCommand}" ToolTip="Duplicar (Ctrl+D)">
+                    <TextBlock Text="&#xE8C8;" Style="{StaticResource ToolIcon}" />
+                </Button>
+                <Button Style="{StaticResource ToolButton}" Command="{Binding DeleteEntityCommand}" ToolTip="Eliminar (Supr)">
+                    <TextBlock Text="&#xE74D;" Style="{StaticResource ToolIcon}" />
+                </Button>
+
+                <Separator Style="{StaticResource ToolSeparator}" />
+
+                <Button Style="{StaticResource ToolButton}" Command="{Binding UndoCommand}" ToolTip="Deshacer (Ctrl+Z)">
+                    <TextBlock Text="&#xE7A7;" Style="{StaticResource ToolIcon}" />
+                </Button>
+                <Button Style="{StaticResource ToolButton}" Command="{Binding RedoCommand}" ToolTip="Rehacer (Ctrl+Y)">
+                    <TextBlock Text="&#xE7A6;" Style="{StaticResource ToolIcon}" />
+                </Button>
+
+                <Separator Style="{StaticResource ToolSeparator}" />
+
+                <Button Style="{StaticResource ToolButton}" Command="{Binding ValidateCommand}" ToolTip="Validar contenido">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#xE9D5;" Style="{StaticResource ToolIcon}" Margin="0,0,6,0" />
+                        <TextBlock Text="Validar" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
+            </ToolBar>
+        </ToolBarTray>
+
         <StatusBar DockPanel.Dock="Bottom">
-            <StatusBarItem Content="{Binding StatusMessage}" />
+            <StatusBarItem>
+                <TextBlock Text="{Binding StatusMessage}" />
+            </StatusBarItem>
+            <StatusBarItem HorizontalAlignment="Right">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="{Binding EntityCount, StringFormat='{}{0} entidades'}" />
+                    <TextBlock Text="  ·  sin guardar" Foreground="{StaticResource WarnBrush}" FontWeight="SemiBold"
+                               Visibility="{Binding IsDirty, Converter={x:Static conv:BooleanToVisibilityConverter.VisibleWhenTrue}}" />
+                </StackPanel>
+            </StatusBarItem>
         </StatusBar>
 
-        <Grid Margin="8">
+        <Grid Margin="10">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="280" MinWidth="200" />
+                <ColumnDefinition Width="300" MinWidth="220" />
                 <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="*" MinWidth="260" />
+                <ColumnDefinition Width="*" MinWidth="300" />
                 <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="320" MinWidth="200" />
+                <ColumnDefinition Width="360" MinWidth="240" />
             </Grid.ColumnDefinitions>
 
-            <GroupBox Grid.Column="0" Header="Contenido">
-                <DockPanel>
-                    <TextBox DockPanel.Dock="Top" Margin="0,0,0,6"
-                             Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
-                             ToolTip="Filtrar por nombre o id" />
-                    <TreeView ItemsSource="{Binding Categories}"
-                              behaviors:TreeViewSelectionBehavior.TrackSelection="True"
-                              behaviors:TreeViewSelectionBehavior.SelectedItem="{Binding SelectedTreeItem, Mode=OneWayToSource}"
-                              BorderThickness="0" Background="Transparent">
-                        <TreeView.ItemContainerStyle>
-                            <Style TargetType="TreeViewItem">
-                                <Setter Property="IsSelected" Value="{Binding IsSelected, Mode=TwoWay}" />
-                            </Style>
-                        </TreeView.ItemContainerStyle>
-                    </TreeView>
+            <!-- ===== Contenido ===== -->
+            <Border Grid.Column="0" Style="{StaticResource Card}">
+                <DockPanel Margin="10">
+                    <TextBlock DockPanel.Dock="Top" Text="CONTENIDO" Style="{StaticResource SectionCaption}" Margin="0,0,0,8" />
+                    <Grid DockPanel.Dock="Top" Margin="0,0,0,8">
+                        <TextBox Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" Padding="24,3,6,3" />
+                        <TextBlock Text="&#xE721;" FontFamily="{StaticResource IconFont}" FontSize="12"
+                                   Foreground="{StaticResource TextMutedBrush}"
+                                   VerticalAlignment="Center" Margin="7,0,0,0" IsHitTestVisible="False" />
+                    </Grid>
+
+                    <Grid>
+                        <TreeView ItemsSource="{Binding Categories}"
+                                  behaviors:TreeViewSelectionBehavior.TrackSelection="True"
+                                  behaviors:TreeViewSelectionBehavior.SelectedItem="{Binding SelectedTreeItem, Mode=OneWayToSource}">
+                            <TreeView.ItemContainerStyle>
+                                <Style TargetType="TreeViewItem" BasedOn="{StaticResource {x:Type TreeViewItem}}">
+                                    <Setter Property="IsSelected" Value="{Binding IsSelected, Mode=TwoWay}" />
+                                    <Setter Property="IsExpanded" Value="True" />
+                                </Style>
+                            </TreeView.ItemContainerStyle>
+                        </TreeView>
+
+                        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Margin="12"
+                                    Visibility="{Binding TreeIsEmpty, Converter={x:Static conv:BooleanToVisibilityConverter.VisibleWhenTrue}}">
+                            <TextBlock Text="&#xE7C3;" FontFamily="{StaticResource IconFont}" FontSize="26"
+                                       Foreground="{StaticResource TextMutedBrush}" HorizontalAlignment="Center" />
+                            <TextBlock Text="Sin resultados" Style="{StaticResource Muted}"
+                                       HorizontalAlignment="Center" Margin="0,6,0,0" />
+                        </StackPanel>
+                    </Grid>
                 </DockPanel>
-            </GroupBox>
+            </Border>
 
-            <GridSplitter Grid.Column="1" Width="6"
-                          HorizontalAlignment="Center" VerticalAlignment="Stretch" />
+            <GridSplitter Grid.Column="1" />
 
-            <GroupBox Grid.Column="2" Header="Inspector">
-                <views:InspectorView DataContext="{Binding Inspector}" />
-            </GroupBox>
+            <!-- ===== Inspector ===== -->
+            <Border Grid.Column="2" Style="{StaticResource Card}">
+                <DockPanel Margin="10">
+                    <TextBlock DockPanel.Dock="Top" Text="INSPECTOR" Style="{StaticResource SectionCaption}" Margin="0,0,0,8" />
+                    <views:InspectorView DataContext="{Binding Inspector}" />
+                </DockPanel>
+            </Border>
 
-            <GridSplitter Grid.Column="3" Width="6"
-                          HorizontalAlignment="Center" VerticalAlignment="Stretch" />
+            <GridSplitter Grid.Column="3" />
 
-            <TabControl Grid.Column="4">
-                <TabItem Header="Preview JSON">
-                    <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
-                        <TextBox Text="{Binding JsonPreview, Mode=OneWay}"
-                                 IsReadOnly="True" BorderThickness="0"
-                                 FontFamily="Consolas, Cascadia Mono, monospace"
-                                 TextWrapping="NoWrap"
-                                 VerticalScrollBarVisibility="Disabled"
-                                 HorizontalScrollBarVisibility="Disabled" />
-                    </ScrollViewer>
-                </TabItem>
-                <TabItem Header="Asistente">
-                    <views:AssistantView DataContext="{Binding Assistant}" />
-                </TabItem>
-            </TabControl>
+            <!-- ===== Preview / Asistente ===== -->
+            <Border Grid.Column="4" Style="{StaticResource Card}">
+                <TabControl Margin="10">
+                    <TabItem Header="Preview JSON">
+                        <ScrollViewer Margin="0,8,0,0" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+                            <TextBox Text="{Binding JsonPreview, Mode=OneWay}"
+                                     IsReadOnly="True" BorderThickness="0" Background="Transparent"
+                                     FontFamily="{StaticResource MonoFont}" FontSize="12"
+                                     TextWrapping="NoWrap"
+                                     VerticalScrollBarVisibility="Disabled" HorizontalScrollBarVisibility="Disabled" />
+                        </ScrollViewer>
+                    </TabItem>
+                    <TabItem Header="Asistente">
+                        <views:AssistantView DataContext="{Binding Assistant}" Margin="0,8,0,0" />
+                    </TabItem>
+                </TabControl>
+            </Border>
         </Grid>
     </DockPanel>
 </Window>

@@ -8,21 +8,21 @@
              xmlns:conv="clr-namespace:Foundry.App.Converters"
              mc:Ignorable="d"
              d:DataContext="{d:DesignInstance Type=vm:InspectorViewModel}"
-             d:DesignWidth="320">
+             d:DesignWidth="360">
 
     <UserControl.Resources>
 
-        <!-- Al fallar la validacion (INotifyDataErrorInfo) mostramos el error en el tooltip.
-             El borde rojo lo pone el ErrorTemplate por defecto de WPF. -->
-        <Style TargetType="TextBox">
+        <!-- Al fallar la validacion (INotifyDataErrorInfo) mostramos el error en el tooltip. -->
+        <Style TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
             <Style.Triggers>
                 <Trigger Property="Validation.HasError" Value="True">
+                    <Setter Property="BorderBrush" Value="{StaticResource DangerBrush}" />
                     <Setter Property="ToolTip"
                             Value="{Binding (Validation.Errors)/ErrorContent, RelativeSource={RelativeSource Self}}" />
                 </Trigger>
             </Style.Triggers>
         </Style>
-        <Style TargetType="ComboBox">
+        <Style TargetType="ComboBox" BasedOn="{StaticResource {x:Type ComboBox}}">
             <Style.Triggers>
                 <Trigger Property="Validation.HasError" Value="True">
                     <Setter Property="ToolTip"
@@ -31,9 +31,8 @@
             </Style.Triggers>
         </Style>
 
-        <!-- Un DataTemplate por tipo de campo. WPF los aplica implicitamente segun el tipo del
-             ViewModel; no hace falta un DataTemplateSelector porque la eleccion depende del tipo,
-             no de un valor en runtime. -->
+        <!-- Un DataTemplate por tipo de campo (elegido por tipo de VM, no por un valor -> templates
+             implicitos, no un DataTemplateSelector). -->
 
         <DataTemplate DataType="{x:Type insp:TextFieldViewModel}">
             <TextBox Text="{Binding Value, UpdateSourceTrigger=LostFocus, ValidatesOnNotifyDataErrors=True}" />
@@ -41,7 +40,7 @@
 
         <DataTemplate DataType="{x:Type insp:WholeNumberFieldViewModel}">
             <DockPanel>
-                <TextBox DockPanel.Dock="Right" Width="56" Margin="6,0,0,0"
+                <TextBox DockPanel.Dock="Right" Width="58" Margin="8,0,0,0" TextAlignment="Right"
                          Text="{Binding Value, UpdateSourceTrigger=LostFocus, ValidatesOnNotifyDataErrors=True}" />
                 <Slider VerticalAlignment="Center"
                         Minimum="{Binding Minimum}" Maximum="{Binding Maximum}"
@@ -53,7 +52,7 @@
 
         <DataTemplate DataType="{x:Type insp:NumberFieldViewModel}">
             <DockPanel>
-                <TextBox DockPanel.Dock="Right" Width="56" Margin="6,0,0,0"
+                <TextBox DockPanel.Dock="Right" Width="58" Margin="8,0,0,0" TextAlignment="Right"
                          Text="{Binding Value, UpdateSourceTrigger=LostFocus, StringFormat=0.###, ValidatesOnNotifyDataErrors=True}" />
                 <Slider VerticalAlignment="Center"
                         Minimum="{Binding Minimum}" Maximum="{Binding Maximum}"
@@ -78,61 +77,73 @@
     </UserControl.Resources>
 
     <Grid>
-        <TextBlock Margin="8" Opacity="0.6" TextWrapping="Wrap"
-                   Text="Seleccioná una entidad en el arbol."
-                   Visibility="{Binding HasEntity, Converter={x:Static conv:BooleanToVisibilityConverter.VisibleWhenFalse}}" />
+        <!-- Estado vacio -->
+        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Margin="16"
+                    Visibility="{Binding HasEntity, Converter={x:Static conv:BooleanToVisibilityConverter.VisibleWhenFalse}}">
+            <TextBlock Text="&#xE7C4;" FontFamily="{StaticResource IconFont}" FontSize="30"
+                       Foreground="{StaticResource TextMutedBrush}" HorizontalAlignment="Center" />
+            <TextBlock Text="Seleccioná una entidad en el arbol" Style="{StaticResource Muted}"
+                       HorizontalAlignment="Center" Margin="0,8,0,0" TextWrapping="Wrap" TextAlignment="Center" />
+        </StackPanel>
 
         <ScrollViewer VerticalScrollBarVisibility="Auto"
                       Visibility="{Binding HasEntity, Converter={x:Static conv:BooleanToVisibilityConverter.VisibleWhenTrue}}">
-            <StackPanel Margin="4">
-                <TextBlock Text="{Binding EntityTitle}" Opacity="0.6" Margin="4,2,4,8" />
+            <StackPanel>
+                <TextBlock Text="{Binding EntityTitle}" Style="{StaticResource Muted}" Margin="0,0,0,10"
+                           FontFamily="{StaticResource MonoFont}" FontSize="11" />
 
                 <ItemsControl ItemsSource="{Binding Groups}">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
-                            <GroupBox Header="{Binding Name}" Margin="0,0,0,8" Padding="4">
+                            <StackPanel Margin="0,0,0,14">
+                                <TextBlock Text="{Binding Name}" Style="{StaticResource SectionCaption}" Margin="0,0,0,6" />
+                                <Border BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,1,0,0" Margin="0,0,0,6" />
+
                                 <ItemsControl ItemsSource="{Binding Fields}">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
-                                            <Grid Margin="2,3">
+                                            <Grid Margin="0,3">
                                                 <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="150" />
+                                                    <ColumnDefinition Width="130" />
                                                     <ColumnDefinition Width="*" />
                                                 </Grid.ColumnDefinitions>
 
-                                                <TextBlock VerticalAlignment="Center"
+                                                <TextBlock VerticalAlignment="Center" Margin="0,0,8,0"
                                                            TextTrimming="CharacterEllipsis"
+                                                           Foreground="{StaticResource TextMutedBrush}"
                                                            ToolTip="{Binding Description}">
                                                     <Run Text="{Binding Label, Mode=OneWay}" />
-                                                    <Run Text="{Binding RequiredMark, Mode=OneWay}" Foreground="#C0392B" />
+                                                    <Run Text="{Binding RequiredMark, Mode=OneWay}" Foreground="{StaticResource DangerBrush}" />
                                                 </TextBlock>
 
                                                 <StackPanel Grid.Column="1">
                                                     <ContentControl Content="{Binding}" />
                                                     <TextBlock Text="{Binding ErrorText}"
-                                                               Foreground="#C0392B" FontSize="11"
-                                                               TextWrapping="Wrap" Margin="0,2,0,0"
+                                                               Foreground="{StaticResource DangerBrush}" FontSize="11"
+                                                               TextWrapping="Wrap" Margin="0,3,0,0"
                                                                Visibility="{Binding HasErrors, Converter={x:Static conv:BooleanToVisibilityConverter.VisibleWhenTrue}}" />
                                                 </StackPanel>
                                             </Grid>
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>
-                            </GroupBox>
+                            </StackPanel>
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
 
-                <GroupBox Header="Usado por" Margin="0,4,0,0" Padding="4"
-                          Visibility="{Binding HasUsages, Converter={x:Static conv:BooleanToVisibilityConverter.VisibleWhenTrue}}">
+                <StackPanel Margin="0,2,0,0"
+                            Visibility="{Binding HasUsages, Converter={x:Static conv:BooleanToVisibilityConverter.VisibleWhenTrue}}">
+                    <TextBlock Text="USADO POR" Style="{StaticResource SectionCaption}" Margin="0,0,0,6" />
+                    <Border BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,1,0,0" Margin="0,0,0,6" />
                     <ItemsControl ItemsSource="{Binding Usages}">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
-                                <TextBlock Text="{Binding}" Margin="2,1" />
+                                <TextBlock Text="{Binding}" Margin="0,2" Style="{StaticResource Muted}" />
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
-                </GroupBox>
+                </StackPanel>
             </StackPanel>
         </ScrollViewer>
     </Grid>

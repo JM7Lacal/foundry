@@ -26,7 +26,12 @@ public partial class MainViewModel : ObservableObject
     private readonly ContentValidator _validator;
 
     private ContentDatabase _database = new();
-    private int _treeEntityCount;
+
+    [ObservableProperty]
+    private int _entityCount;
+
+    [ObservableProperty]
+    private bool _treeIsEmpty = true;
 
     [ObservableProperty]
     private string _jsonPreview = string.Empty;
@@ -368,7 +373,7 @@ public partial class MainViewModel : ObservableObject
             IsDirty = true;
         }
 
-        if (_database.Count != _treeEntityCount)
+        if (_database.Count != EntityCount)
         {
             RebuildTree(); // una accion cambio la cantidad de entidades (agregar/quitar por undo/redo)
         }
@@ -389,7 +394,7 @@ public partial class MainViewModel : ObservableObject
     private void RebuildTree()
     {
         Categories.Clear();
-        _treeEntityCount = _database.Count;
+        EntityCount = _database.Count;
 
         var filter = SearchText.Trim();
         var groups = _database.All
@@ -407,6 +412,8 @@ public partial class MainViewModel : ObservableObject
 
             Categories.Add(category);
         }
+
+        TreeIsEmpty = Categories.Count == 0;
     }
 
     private static bool Matches(ContentEntity entity, string filter) =>
