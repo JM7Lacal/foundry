@@ -38,6 +38,9 @@ public static class SchemaDescription
         };
 
         var flags = field.IsRequired ? " (requerido)" : string.Empty;
-        return $"{field.PropertyName} [{type}]{flags}";
+        return $"{CamelCase(field.PropertyName)} [{type}]{flags}";
     }
+
+    private static string CamelCase(string name) =>
+        name.Length == 0 ? name : char.ToLowerInvariant(name[0]) + name[1..];
 }

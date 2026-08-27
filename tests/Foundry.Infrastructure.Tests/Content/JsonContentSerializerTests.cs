@@ -40,6 +40,17 @@ public class JsonContentSerializerTests
     }
 
     [Fact]
+    public void DeserializeEntities_accepts_pascal_case_field_names_from_a_model()
+    {
+        var troop = _serializer.DeserializeEntities(
+            """{ "$type": "troop", "Id": "troop.x", "Name": "X", "Cost": 150, "DamageType": "siege" }""")
+            .OfType<Troop>().Single();
+
+        troop.Cost.Should().Be(150);
+        troop.DamageType.Should().Be(DamageType.Siege);
+    }
+
+    [Fact]
     public void DeserializeEntities_rejects_an_unknown_type()
     {
         var act = () => _serializer.DeserializeEntities("""{ "$type": "dragon", "id": "d.1", "name": "D" }""");

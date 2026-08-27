@@ -22,6 +22,9 @@ public static class FoundryJsonOptions
         {
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
             DictionaryKeyPolicy = JsonNamingPolicy.CamelCase,
+            // Al leer aceptamos cualquier capitalizacion: el JSON de un archivo usa camelCase,
+            // pero un modelo de lenguaje suele devolver PascalCase.
+            PropertyNameCaseInsensitive = true,
             WriteIndented = true,
             DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
             TypeInfoResolver = new DefaultJsonTypeInfoResolver

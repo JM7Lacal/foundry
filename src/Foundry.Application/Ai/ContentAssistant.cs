@@ -57,10 +57,11 @@ public sealed class ContentAssistant
         {
           "rationale": "explicacion breve de lo que hiciste (opcional)",
           "answer": "respuesta en texto si la consulta no requiere crear entidades (opcional)",
-          "entities": [ { "$type": "troop", "id": "troop.xxx", "name": "...", ... } ]
+          "entities": [ { "$type": "troop", "id": "troop.xxx", "name": "...", "cost": 120, "damage": 18 } ]
         }
-        Usá "entities" solo cuando crees o modifiques contenido. Los id van en minuscula con puntos
-        (ej. "troop.spearman"). Respetá los rangos de cada campo.
+        Reglas: los nombres de campo van en camelCase, tal como aparecen arriba. Usá "entities" solo
+        cuando crees o modifiques contenido. Los id van en minuscula con puntos (ej. "troop.spearman").
+        Respetá los rangos de cada campo.
         """;
 
     private static string UserPrompt(string request, ContentDatabase database)
