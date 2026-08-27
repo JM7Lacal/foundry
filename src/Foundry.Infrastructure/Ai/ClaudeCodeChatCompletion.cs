@@ -98,14 +98,22 @@ public sealed class ClaudeCodeChatCompletion : IChatCompletion
             return "claude";
         }
 
-        var nativeRoot = Path.Combine(
+        // Instalacion nativa: launcher en %USERPROFILE%\.local\bin\claude.exe
+        var userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        var nativeLauncher = Path.Combine(userProfile, ".local", "bin", "claude.exe");
+        if (File.Exists(nativeLauncher))
+        {
+            return nativeLauncher;
+        }
+
+        // Instalacion vieja versionada: %APPDATA%\Claude\claude-code\<version>\claude.exe
+        var versionedRoot = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
             "Claude",
             "claude-code");
-
-        if (Directory.Exists(nativeRoot))
+        if (Directory.Exists(versionedRoot))
         {
-            var latest = Directory.GetDirectories(nativeRoot)
+            var latest = Directory.GetDirectories(versionedRoot)
                 .Select(dir => Path.Combine(dir, "claude.exe"))
                 .Where(File.Exists)
                 .OrderByDescending(path => path, StringComparer.Ordinal)
