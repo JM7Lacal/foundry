@@ -18,6 +18,7 @@ public partial class AssistantViewModel : ObservableObject
     private readonly ContentAssistant _assistant;
 
     private ContentDatabase? _context;
+    private ContentEntity? _selected;
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(AskCommand))]
@@ -25,6 +26,9 @@ public partial class AssistantViewModel : ObservableObject
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(AskCommand))]
+    [NotifyCanExecuteChangedFor(nameof(AnalyzeEntityCommand))]
+    [NotifyCanExecuteChangedFor(nameof(ExplainUpgradesCommand))]
+    [NotifyCanExecuteChangedFor(nameof(CheckBalanceCommand))]
     private bool _isBusy;
 
     [ObservableProperty]
@@ -56,6 +60,43 @@ public partial class AssistantViewModel : ObservableObject
     {
         _context = database;
         AskCommand.NotifyCanExecuteChanged();
+    }
+
+    /// <summary>Le dice al asistente que entidad esta abierta, para las acciones rapidas.</summary>
+    public void SetSelectedEntity(ContentEntity? entity)
+    {
+        _selected = entity;
+        AnalyzeEntityCommand.NotifyCanExecuteChanged();
+        ExplainUpgradesCommand.NotifyCanExecuteChanged();
+        CheckBalanceCommand.NotifyCanExecuteChanged();
+    }
+
+    [RelayCommand(CanExecute = nameof(CanRunEntityAction))]
+    private Task AnalyzeEntity() => RunQuickAction(
+        $"Analizá «{_selected!.Name}» ({_selected.Id}): revisá sus stats contra entidades similares y "
+        + "marcá cualquier valor sospechoso o incoherente. Respondé solo con texto en \"answer\", sin crear entidades.");
+
+    [RelayCommand(CanExecute = nameof(CanRunEntityAction))]
+    private Task ExplainUpgrades() => RunQuickAction(
+        $"Explicá la cadena de mejora de «{_selected!.Name}» ({_selected.Id}): que mejora a que, si la "
+        + "progresion de daño/vida/costo es coherente, y que ajustarias. Solo texto en \"answer\".");
+
+    [RelayCommand(CanExecute = nameof(CanRunEntityAction))]
+    private Task CheckBalance() => RunQuickAction(
+        $"¿«{_selected!.Name}» ({_selected.Id}) esta balanceada frente a los enemigos del juego? Si ves un "
+        + "problema, devolvé la entidad ajustada en \"entities\" (con el mismo id) para que el usuario la revise, "
+        + "y explicá el cambio en \"rationale\".");
+
+    // Las acciones rapidas traen su propio prompt, asi que no exigen texto escrito.
+    private bool CanRunEntityAction() => _selected is not null && !IsBusy && _context is not null;
+
+    private async Task RunQuickAction(string prompt)
+    {
+        Prompt = prompt;
+        if (AskCommand.CanExecute(null))
+        {
+            await AskCommand.ExecuteAsync(null).ConfigureAwait(true);
+        }
     }
 
     [RelayCommand(CanExecute = nameof(CanAsk), IncludeCancelCommand = true)]

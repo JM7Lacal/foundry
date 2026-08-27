@@ -72,6 +72,33 @@ public class AssistantViewModelTests
     }
 
     [Fact]
+    public void Quick_actions_need_a_selected_entity()
+    {
+        var vm = Build("""{ "answer": "ok" }""", out _);
+        vm.SetContext(Db());
+
+        vm.AnalyzeEntityCommand.CanExecute(null).Should().BeFalse();
+
+        vm.SetSelectedEntity(new Troop { Id = new EntityId("troop.knight"), Name = "Caballero" });
+        vm.AnalyzeEntityCommand.CanExecute(null).Should().BeTrue();
+        vm.ExplainUpgradesCommand.CanExecute(null).Should().BeTrue();
+        vm.CheckBalanceCommand.CanExecute(null).Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task A_quick_action_fills_the_prompt_and_runs_it()
+    {
+        var vm = Build("""{ "answer": "El caballero esta bien." }""", out _);
+        vm.SetContext(Db());
+        vm.SetSelectedEntity(new Troop { Id = new EntityId("troop.knight"), Name = "Caballero" });
+
+        await vm.AnalyzeEntityCommand.ExecuteAsync(null);
+
+        vm.Prompt.Should().Contain("Caballero");
+        vm.Answer.Should().Be("El caballero esta bien.");
+    }
+
+    [Fact]
     public async Task A_provider_failure_is_surfaced_as_an_error()
     {
         var vm = new AssistantViewModel(new ContentAssistant(new FailingChat(), new FakeSerializer()));

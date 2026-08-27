@@ -13,6 +13,17 @@
         <TextBlock DockPanel.Dock="Top" Style="{StaticResource Muted}" Margin="0,0,0,6"
                    Text="{Binding ProviderName, StringFormat='Modelo: {0}'}" />
 
+        <TextBlock DockPanel.Dock="Top" Text="ACCIONES RAPIDAS (entidad seleccionada)"
+                   Style="{StaticResource SectionCaption}" Margin="0,0,0,6" />
+        <WrapPanel DockPanel.Dock="Top" Margin="0,0,0,10">
+            <Button Content="Analizar" Margin="0,0,6,6" Command="{Binding AnalyzeEntityCommand}"
+                    ToolTip="Revisá los stats en busca de valores sospechosos" />
+            <Button Content="Cadena de mejora" Margin="0,0,6,6" Command="{Binding ExplainUpgradesCommand}"
+                    ToolTip="Explicá y evaluá la progresión de upgrades" />
+            <Button Content="¿Balance?" Margin="0,0,6,6" Command="{Binding CheckBalanceCommand}"
+                    ToolTip="Compará contra los enemigos y proponé ajustes" />
+        </WrapPanel>
+
         <Border DockPanel.Dock="Top" Style="{StaticResource Card}" Padding="1">
             <TextBox Height="72" BorderThickness="0" Background="Transparent"
                      AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto"

@@ -313,6 +313,7 @@ public partial class MainViewModel : ObservableObject
     {
         OnPropertyChanged(nameof(SelectedEntity));
         Inspector.Load(SelectedEntity, _database);
+        Assistant.SetSelectedEntity(SelectedEntity);
         UpdatePreview();
         DuplicateEntityCommand.NotifyCanExecuteChanged();
         DeleteEntityCommand.NotifyCanExecuteChanged();
