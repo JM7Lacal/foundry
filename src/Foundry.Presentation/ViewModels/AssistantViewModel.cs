@@ -20,6 +20,7 @@ public partial class AssistantViewModel : ObservableObject
     private ContentDatabase? _context;
 
     [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(AskCommand))]
     private string _prompt = string.Empty;
 
     [ObservableProperty]
@@ -51,7 +52,11 @@ public partial class AssistantViewModel : ObservableObject
 
     public bool HasProposal => Proposal.Count > 0;
 
-    public void SetContext(ContentDatabase database) => _context = database;
+    public void SetContext(ContentDatabase database)
+    {
+        _context = database;
+        AskCommand.NotifyCanExecuteChanged();
+    }
 
     [RelayCommand(CanExecute = nameof(CanAsk), IncludeCancelCommand = true)]
     private async Task AskAsync(CancellationToken cancellationToken)
