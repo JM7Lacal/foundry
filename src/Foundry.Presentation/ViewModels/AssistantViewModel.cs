@@ -112,9 +112,20 @@ public partial class AssistantViewModel : ObservableObject
         {
             var result = await _assistant.AskAsync(Prompt, _context!, cancellationToken).ConfigureAwait(true);
 
-            Answer = result.Answer;
-            Rationale = result.Rationale;
             SetProposal(result.ProposedEntities);
+
+            // Con propuesta: el rationale explica el cambio. Sin propuesta: una sola respuesta,
+            // no rationale + answer diciendo lo mismo.
+            if (result.HasProposal)
+            {
+                Rationale = result.Rationale ?? result.Answer;
+                Answer = null;
+            }
+            else
+            {
+                Answer = result.Answer ?? result.Rationale;
+                Rationale = null;
+            }
         }
         catch (OperationCanceledException)
         {
