@@ -87,6 +87,7 @@ public partial class App : System.Windows.Application
                 services.AddSingleton<IFilePicker, WpfFilePicker>();
                 services.AddSingleton<IDialogService, WpfDialogService>();
                 services.AddSingleton<IRecentFiles, JsonRecentFiles>();
+                services.AddSingleton<IPreferences, JsonPreferences>();
                 services.AddSingleton<IThemeService, WpfThemeService>();
                 services.AddSingleton<MainWindow>();
 

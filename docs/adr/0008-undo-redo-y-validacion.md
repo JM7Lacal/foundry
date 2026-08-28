@@ -43,11 +43,22 @@ antes de exportar al juego (un costo negativo o una referencia rota rompen el bu
 (daño, vida, costo) contra los de la entidad referenciada, y detecta ciclos. Las reglas son
 listas: agregar una no toca `Validate`.
 
-### Dirty tracking
+### Dirty tracking y guardado
 
 `MainViewModel.IsDirty` → `true` en cualquier cambio del `UndoStack`, `false` al guardar o
-cargar. Se ve como `*` en el titulo. Prompt de confirmacion al abrir otro archivo
-(`IDialogService`) y al cerrar la ventana (`MainWindow.OnClosing`).
+cargar. Se ve como `*` en el titulo y en la status bar.
+
+- **Editar campos** no autoguarda (decision del usuario: prefiere el control).
+- **Al dejar una entidad con cambios sin guardar** (cambio de seleccion en el arbol) →
+  *"¿Guardar antes de seguir?"* [Guardar y seguir] / [Seguir sin guardar]. Fuerza la disciplina
+  de guardar sin ser un autoguardado.
+- **Al aplicar una propuesta del asistente** → se persiste a disco automaticamente (sin pasar
+  por el gate de validacion; el panel muestra los avisos). Si no hay archivo propio todavia,
+  se pide "Guardar como" una vez.
+- **`SaveAsync` (Ctrl+S)** mantiene el gate: si hay errores no guarda y abre el panel. Y si el
+  archivo actual esta dentro del directorio del ejecutable (el sample), fuerza "Guardar como".
+- **Al cerrar** (`MainWindow.OnClosing`): corre la validacion completa (abre el panel) y, si hay
+  errores o cambios sin guardar, avisa — se puede cerrar igual.
 
 ## Consecuencias
 

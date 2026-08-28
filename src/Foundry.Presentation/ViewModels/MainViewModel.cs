@@ -214,8 +214,11 @@ public partial class MainViewModel : ObservableObject
             return;
         }
 
-        var path = CurrentFilePath
-                   ?? _filePicker.PickSaveFile("Contenido de juego (*.json)|*.json", "contenido.json");
+        // El sample vive dentro del directorio del ejecutable y lo pisa cualquier build:
+        // ante eso, siempre pedir "Guardar como" a una ruta propia.
+        var path = CurrentFilePath is { } current && !IsUnderAppDirectory(current)
+            ? current
+            : _filePicker.PickSaveFile("Contenido de juego (*.json)|*.json", "contenido.json");
         if (path is null)
         {
             return;
@@ -225,8 +228,10 @@ public partial class MainViewModel : ObservableObject
         {
             await _repository.SaveAsync(_database, path).ConfigureAwait(true);
             CurrentFilePath = path;
+            _recentFiles.Add(path);
+            RefreshRecent();
             IsDirty = false;
-            StatusMessage = $"Guardado en {path}";
+            StatusMessage = $"Guardado en {Path.GetFileName(path)}";
         }
         catch (ContentRepositoryException ex)
         {
@@ -430,8 +435,17 @@ public partial class MainViewModel : ObservableObject
 
     private bool HasSelectedEntity() => SelectedEntity is not null;
 
-    partial void OnSelectedTreeItemChanged(object? value)
+    partial void OnSelectedTreeItemChanged(object? oldValue, object? newValue)
     {
+        // Al dejar una entidad con cambios sin guardar, forzar la decision de guardar.
+        if (IsDirty
+            && oldValue is EntityNodeViewModel left
+            && !ReferenceEquals(left, newValue)
+            && _dialogs.Confirm("Tenés cambios sin guardar. ¿Guardar antes de seguir?", "Foundry"))
+        {
+            _ = SaveAsync();
+        }
+
         OnPropertyChanged(nameof(SelectedEntity));
         Inspector.Load(SelectedEntity, _database);
         Assistant.SetSelectedEntity(SelectedEntity);
@@ -485,7 +499,50 @@ public partial class MainViewModel : ObservableObject
 
         _undoStack.Execute(new AddEntitiesAction(_database, proposal));
         RebuildTree();
-        StatusMessage = $"Agregadas {proposal.Count} entidad(es) desde el asistente. Guardá para confirmar.";
+        _ = PersistAfterAssistantAsync(proposal.Count);
+    }
+
+    /// <summary>
+    /// Las entidades que aplica el asistente se guardan a disco sin pasar por la validacion
+    /// (el panel muestra los avisos). Si no hay archivo real todavia, se pide destino una vez.
+    /// </summary>
+    private async Task PersistAfterAssistantAsync(int count)
+    {
+        var path = CurrentFilePath is { } current && !IsUnderAppDirectory(current)
+            ? current
+            : _filePicker.PickSaveFile("Contenido de juego (*.json)|*.json", "contenido.json");
+
+        if (path is null)
+        {
+            StatusMessage = $"Agregadas {count} entidad(es). Guardá para persistir.";
+            return;
+        }
+
+        try
+        {
+            await _repository.SaveAsync(_database, path).ConfigureAwait(true);
+            CurrentFilePath = path;
+            _recentFiles.Add(path);
+            RefreshRecent();
+            IsDirty = false;
+            StatusMessage = $"{count} entidad(es) de la IA agregadas y guardadas en {Path.GetFileName(path)}.";
+        }
+        catch (ContentRepositoryException ex)
+        {
+            StatusMessage = $"Agregadas, pero no se pudo guardar: {ex.Message}";
+        }
+    }
+
+    private static bool IsUnderAppDirectory(string path)
+    {
+        try
+        {
+            return Path.GetFullPath(path).StartsWith(AppContext.BaseDirectory, StringComparison.OrdinalIgnoreCase);
+        }
+        catch (Exception ex) when (ex is ArgumentException or PathTooLongException or System.Security.SecurityException)
+        {
+            return false;
+        }
     }
 
     private void OnUndoStackChanged(object? sender, EventArgs e)

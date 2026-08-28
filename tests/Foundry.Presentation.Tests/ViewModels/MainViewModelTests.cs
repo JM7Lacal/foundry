@@ -13,7 +13,8 @@ namespace Foundry.Presentation.Tests.ViewModels;
 
 public class MainViewModelTests
 {
-    private static (MainViewModel Vm, RecordingRepository Repo) Build(ContentDatabase database)
+    private static (MainViewModel Vm, RecordingRepository Repo) Build(
+        ContentDatabase database, string assistantReply = """{ "answer": "ok" }""", bool confirm = true)
     {
         var undo = new UndoStack();
         var repo = new RecordingRepository(database);
@@ -23,13 +24,13 @@ public class MainViewModelTests
             serializer,
             new StubImporter(),
             new StubFilePicker(),
-            new StubDialogService(),
+            new StubDialogService(confirm),
             new StubRecentFiles(),
             new StubThemeService(),
             undo,
             new ContentValidator(),
             new InspectorViewModel(undo),
-            new AssistantViewModel(new ContentAssistant(new FakeChat(), serializer)));
+            new AssistantViewModel(new ContentAssistant(new ScriptedChat(assistantReply), serializer)));
         return (vm, repo);
     }
 
@@ -99,6 +100,40 @@ public class MainViewModelTests
         await Task.Yield();
 
         vm.StatusMessage.Should().Contain("validacion");
+    }
+
+    [Fact]
+    public async Task Switching_entities_with_unsaved_changes_asks_and_saves()
+    {
+        var db = SampleDatabase();
+        var (vm, repo) = Build(db); // confirm = true por defecto -> "Guardar y seguir"
+        await vm.LoadFromAsync("game.json");
+        var nodes = vm.Categories.SelectMany(c => c.Entities).ToList();
+        vm.SelectedTreeItem = nodes.First(n => n.Entity.Name == "Arquero");
+        DamageField(vm).Value = 25; // valido, deja dirty
+
+        vm.SelectedTreeItem = nodes.First(n => n.Entity.Name == "Orco");
+        await Task.Yield();
+
+        repo.Saved.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Applying_an_assistant_proposal_persists_it_without_a_manual_save()
+    {
+        var reply = """{ "entities": [ { "$type": "troop", "id": "troop.mage", "name": "Mago", "cost": 100 } ] }""";
+        var db = SampleDatabase();
+        var (vm, repo) = Build(db, reply);
+        await vm.LoadFromAsync("game.json");
+
+        vm.Assistant.Prompt = "crea un mago";
+        await vm.Assistant.AskCommand.ExecuteAsync(null);
+        vm.Assistant.ApplyProposalCommand.Execute(null);
+        await Task.Yield();
+
+        db.Contains(new EntityId("troop.mage")).Should().BeTrue();
+        repo.Saved.Should().BeTrue();
+        vm.IsDirty.Should().BeFalse();
     }
 
     [Fact]
@@ -281,15 +316,22 @@ public class MainViewModelTests
     {
         public string SerializeEntity(ContentEntity entity) => "<json>";
 
-        public IReadOnlyList<ContentEntity> DeserializeEntities(string json) => Array.Empty<ContentEntity>();
+        public IReadOnlyList<ContentEntity> DeserializeEntities(string json) =>
+            json.Contains("troop.mage", StringComparison.Ordinal)
+                ? [new Troop { Id = new EntityId("troop.mage"), Name = "Mago", Cost = 100 }]
+                : Array.Empty<ContentEntity>();
     }
 
-    private sealed class FakeChat : IChatCompletion
+    private sealed class ScriptedChat : IChatCompletion
     {
-        public string Name => "fake";
+        private readonly string _reply;
+
+        public ScriptedChat(string reply) => _reply = reply;
+
+        public string Name => "scripted";
 
         public Task<string> CompleteAsync(IReadOnlyList<ChatMessage> messages, CancellationToken cancellationToken = default)
-            => Task.FromResult("""{ "answer": "ok" }""");
+            => Task.FromResult(_reply);
     }
 
     private sealed class StubImporter : IContentImporter
@@ -303,7 +345,11 @@ public class MainViewModelTests
 
     private sealed class StubDialogService : IDialogService
     {
-        public bool Confirm(string message, string title) => true;
+        private readonly bool _confirm;
+
+        public StubDialogService(bool confirm) => _confirm = confirm;
+
+        public bool Confirm(string message, string title) => _confirm;
 
         public void Inform(string message, string title)
         {
