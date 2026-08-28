@@ -1,12 +1,10 @@
 # Foundry
 
-Herramienta interna de escritorio (**WPF / .NET 8**) para editar y validar el contenido de un
-juego tower-defense/estrategia — tropas, torres, enemigos, cadenas de mejora — antes de exportarlo
-al JSON que consume el juego.
+Herramienta de escritorio (**WPF / .NET 8**) para editar y validar el contenido de un juego
+tower-defense — tropas, torres, enemigos, cadenas de mejora — antes de exportarlo al JSON que
+consume el juego.
 
-> Proyecto de portfolio para una entrevista de **Tools Engineer (C# / WPF)**. El foco no es la
-> cantidad de features sino cómo se estructura una herramienta interna: arquitectura defendible,
-> lógica testeable y decisiones justificadas (12 ADRs en [`docs/adr`](docs/adr)).
+El porqué de cada decisión de diseño está en [`docs/adr`](docs/adr).
 
 ## El problema
 
@@ -16,9 +14,9 @@ Los errores que se cuelan (un costo negativo, una referencia a una entidad que n
 fuera del rango que el engine tolera, una "mejora" que es peor que la unidad base) **rompen el
 build del juego** o, peor, pasan silenciosamente al balance.
 
-**Foundry** es la herramienta que se mete en el medio: los diseñadores editan el contenido con un
-formulario por entidad, ven en vivo el JSON que se va a guardar, y la herramienta **valida el
-game data completo** — con un panel siempre visible y un chequeo duro antes de cerrar.
+Foundry se mete en el medio: los diseñadores editan cada entidad en un formulario, ven en vivo el
+JSON que se va a guardar, y hay validación de todo el game data en un panel siempre visible más un
+chequeo completo antes de cerrar.
 
 ## Screenshots
 
@@ -88,11 +86,11 @@ flowchart LR
     Appl --> Core
 ```
 
-**La regla de dependencias apunta siempre hacia adentro.** `Core` no referencia a nadie, así que
-la lógica de dominio se testea sin instanciar una ventana ni tocar el disco. `Application` define
-interfaces que `Infrastructure` implementa: la capa de casos de uso no sabe que la persistencia es
-JSON. Los **ViewModels viven en `Foundry.Presentation`, sin referencia a WPF**, y se testean con un
-runner de consola normal. El límite se **fuerza con los proyectos**: MSBuild no permite referencias
+Las dependencias apuntan hacia adentro. `Core` no referencia a nadie, así que la lógica de dominio
+se testea sin instanciar una ventana ni tocar el disco. `Application` define interfaces que
+`Infrastructure` implementa: la capa de casos de uso no sabe que la persistencia es JSON. Los
+ViewModels viven en `Foundry.Presentation`, sin referencia a WPF, y corren en un runner de consola
+normal. El límite lo fuerzan las referencias entre proyectos: MSBuild no deja referencias
 circulares ni saltos de capa.
 
 ```
@@ -129,7 +127,7 @@ Foundry.sln
 | [0011](docs/adr/0011-asistente-ia.md) | Asistente con IA: puerto `IChatCompletion` + proveedor elegido por config |
 | [0012](docs/adr/0012-proyecto-multi-archivo.md) | Un archivo por ahora; proyecto multi-archivo pendiente |
 
-## El núcleo: el Inspector por reflexión
+## El Inspector por reflexión
 
 En lugar de escribir un formulario por tipo de entidad, las entidades se anotan:
 
@@ -156,14 +154,15 @@ una cadena de mejora.
 2. `override CategoryName => "Trampas";`
 3. Anotar sus propiedades con `[EditableProperty]` / `[Range]` / `[AssetReference]`.
 
-Eso es todo. El árbol la agrupa, el Inspector le arma el formulario, la serialización JSON, el
-importador CSV, el menú *Nueva entidad* **y el prompt del asistente** la reconocen por reflexión
-(`ContentEntityCatalog` + `SchemaDescription`). **Cero UI, cero serialización, cero registro
-manual.**
+Con eso, el árbol la agrupa, el Inspector le arma el formulario, y la serialización JSON, el
+importador CSV, el menú *Nueva entidad* y el prompt del asistente la reconocen por reflexión
+(`ContentEntityCatalog` + `SchemaDescription`). No hay que tocar UI, serialización ni ningún
+registro manual.
 
 ## Testing
 
-`xUnit` + `FluentAssertions`. **92 tests**, sobre comportamiento real (no getters triviales).
+`xUnit` + `FluentAssertions`. 92 tests, sobre todo de la lógica de validación, undo/redo y el
+schema por reflexión.
 
 | Proyecto | Cubre |
 |---|---|
@@ -172,16 +171,15 @@ manual.**
 | Infrastructure | round-trip JSON, polimorfismo `$type`, tipo desconocido, PascalCase de un modelo, importador CSV (mapeo por nombre/etiqueta, comillas, errores con línea), `ContentAssistant` (parseo, fences, entidades inválidas) |
 | Presentation | `MainViewModel` (árbol, selección, dirty por profundidad de pila, guardado + "guardar como" del ejemplo, undo/redo, filtro, new/duplicate/delete, panel de validación, navegación a un issue, aplicar propuesta de IA, tema), `InspectorViewModel`, `AssistantViewModel` (habilitación, propuesta, acciones rápidas, errores). Sin runner de WPF gracias al split de assemblies |
 
-## Fuera de alcance (a propósito)
+## Fuera de alcance
 
-- **Editor de grafo** (diálogos / skill trees con nodos): mucho tiempo en rendering custom, poco
-  en la historia de ingeniería.
+- **Editor de grafo** (diálogos / skill trees con nodos): mucho rendering custom para poco a
+  cambio en un proyecto de este tamaño.
 - **Librería de UI de terceros** (MahApps, Material, etc.): el tema y los `ControlTemplate` se
-  hacen a mano con `ResourceDictionary` para mostrar dominio de recursos y estilos
-  ([ADR 0010](docs/adr/0010-theming.md)).
+  hacen a mano con `ResourceDictionary` ([ADR 0010](docs/adr/0010-theming.md)).
 - **`DataTemplateSelector`**: los templates de campo se eligen por tipo de ViewModel, no por un
-  valor en runtime — para eso los templates implícitos son la herramienta correcta.
-- **Integración con Perforce / pipeline de build real**: se menciona como extensión.
+  valor en runtime; para eso alcanzan los templates implícitos.
+- **Integración con Perforce / pipeline de build real**: queda como extensión.
 
 ## Qué haría después
 
@@ -200,5 +198,5 @@ manual.**
 
 ## Licencia
 
-Proyecto de portfolio de **Juan Martín Lacal de Castro**, publicado sólo para evaluación en el
-marco de una postulación laboral. Ver [`LICENSE`](LICENSE).
+Proyecto personal de Juan Martín Lacal de Castro, publicado sólo para evaluación. Ver
+[`LICENSE`](LICENSE).
