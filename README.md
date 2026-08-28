@@ -24,7 +24,7 @@ game data completo** — con un panel siempre visible y un chequeo duro antes de
 
 | Editor + Inspector | Validación del game data | Asistente con IA |
 |---|---|---|
-| ![Ventana principal con una entidad en el Inspector](docs/img/01-inspector.png) | ![Panel de validación con un error y un aviso](docs/img/02-validacion.png) | ![Pestaña Asistente con una propuesta de entidad](docs/img/03-asistente.png) |
+| ![Árbol de contenido, Inspector generado por reflexión y preview JSON](docs/img/01-inspector.png) | ![Panel de validación abierto con un aviso de balance y el badge en el árbol](docs/img/02-validacion.png) | ![Pestaña Asistente: proveedor claude-code analizando el balance](docs/img/03-asistente.png) |
 
 ## Correr
 
