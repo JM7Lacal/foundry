@@ -24,6 +24,9 @@ public sealed class WpfFilePicker : IFilePicker
             Filter = filter,
             FileName = suggestedFileName ?? string.Empty,
             OverwritePrompt = true,
+            // Nunca ofrecer por defecto el directorio del .exe (ahi vive el ejemplo y bin/ se
+            // regenera en cada build, llevandose el trabajo).
+            InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
         };
 
         return dialog.ShowDialog() == true ? dialog.FileName : null;

@@ -252,6 +252,9 @@ public sealed class ReferenceOption
     public EntityId? Id { get; }
 
     public string Label { get; }
+
+    // Respaldo por si un ComboBox no aplica el DisplayMemberPath en el cuadro de seleccion.
+    public override string ToString() => Label;
 }
 
 /// <summary>Referencia a otra entidad del tipo indicado por <see cref="AssetReferenceAttribute"/>.</summary>

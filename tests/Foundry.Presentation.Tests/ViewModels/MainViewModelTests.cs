@@ -90,36 +90,41 @@ public class MainViewModelTests
     }
 
     [Fact]
-    public async Task Save_is_blocked_when_the_database_has_validation_issues()
+    public async Task Save_is_not_blocked_by_validation_issues()
     {
         var db = SampleDatabase();
-        var vm = await LoadedWithArcherSelected(db);
+        var (vm, repo) = Build(db);
+        await vm.LoadFromAsync("game.json");
+        vm.SelectedTreeItem = vm.Categories.SelectMany(c => c.Entities).First(n => n.Entity.Name == "Arquero");
         DamageField(vm).Value = 999999; // fuera de rango
 
         vm.SaveCommand.Execute(null);
         await Task.Yield();
 
-        vm.StatusMessage.Should().Contain("validacion");
+        repo.Saved.Should().BeTrue();
+        vm.ErrorCount.Should().Be(1); // el panel lo sigue mostrando; el chequeo duro es al cerrar
     }
 
     [Fact]
-    public async Task Switching_entities_with_unsaved_changes_asks_and_saves()
+    public async Task Switching_entities_freely_loads_each_without_prompting()
     {
         var db = SampleDatabase();
-        var (vm, repo) = Build(db); // confirm = true por defecto -> "Guardar y seguir"
+        var (vm, _) = Build(db, confirm: false); // si preguntara algo, "Cancelar" romperia esto
         await vm.LoadFromAsync("game.json");
         var nodes = vm.Categories.SelectMany(c => c.Entities).ToList();
+
         vm.SelectedTreeItem = nodes.First(n => n.Entity.Name == "Arquero");
-        DamageField(vm).Value = 25; // valido, deja dirty
+        DamageField(vm).Value = 25; // edicion pendiente, sin guardar
 
         vm.SelectedTreeItem = nodes.First(n => n.Entity.Name == "Orco");
-        await Task.Yield();
 
-        repo.Saved.Should().BeTrue();
+        vm.SelectedEntity!.Name.Should().Be("Orco");
+        ((Troop)db.Get(new EntityId("troop.archer"))).Damage.Should().Be(25); // el cambio queda en memoria
+        vm.IsDirty.Should().BeTrue();
     }
 
     [Fact]
-    public async Task Applying_an_assistant_proposal_persists_it_without_a_manual_save()
+    public async Task Applying_an_assistant_proposal_adds_and_selects_it_without_saving()
     {
         var reply = """{ "entities": [ { "$type": "troop", "id": "troop.mage", "name": "Mago", "cost": 100 } ] }""";
         var db = SampleDatabase();
@@ -132,8 +137,12 @@ public class MainViewModelTests
         await Task.Yield();
 
         db.Contains(new EntityId("troop.mage")).Should().BeTrue();
-        repo.Saved.Should().BeTrue();
-        vm.IsDirty.Should().BeFalse();
+        vm.SelectedEntity!.Id.Should().Be(new EntityId("troop.mage"));
+        vm.IsDirty.Should().BeTrue();     // en memoria, se guarda con Ctrl+S
+        repo.Saved.Should().BeFalse();
+
+        vm.UndoCommand.Execute(null);
+        db.Contains(new EntityId("troop.mage")).Should().BeFalse(); // es deshacible
     }
 
     [Fact]
@@ -201,13 +210,12 @@ public class MainViewModelTests
     }
 
     [Fact]
-    public async Task Save_opens_the_issues_panel_when_blocked()
+    public async Task Validate_opens_the_issues_panel()
     {
         var vm = await LoadedWithArcherSelected(SampleDatabase());
         DamageField(vm).Value = 999999;
 
-        vm.SaveCommand.Execute(null);
-        await Task.Yield();
+        vm.ValidateCommand.Execute(null);
 
         vm.IssuesPanelOpen.Should().BeTrue();
     }
@@ -238,13 +246,15 @@ public class MainViewModelTests
     [Fact]
     public async Task GoToIssue_selects_the_offending_entity()
     {
-        var vm = await LoadedWithArcherSelected(SampleDatabase());
-        DamageField(vm).Value = 999999;
-        vm.SelectedTreeItem = null;
+        var db = SampleDatabase();
+        db.Add(new Troop { Id = new EntityId("troop.broken"), Name = "Roto", Damage = 999999 });
+        var (vm, _) = Build(db);
+        await vm.LoadFromAsync("game.json");
+        vm.SelectedTreeItem = vm.Categories.SelectMany(c => c.Entities).First(n => n.Entity.Name == "Orco");
 
-        vm.GoToIssueCommand.Execute(vm.ValidationIssues.First());
+        vm.GoToIssueCommand.Execute(vm.ValidationIssues.First(i => i.IsError));
 
-        vm.SelectedEntity!.Id.Should().Be(new EntityId("troop.archer"));
+        vm.SelectedEntity!.Id.Should().Be(new EntityId("troop.broken"));
     }
 
     [Fact]

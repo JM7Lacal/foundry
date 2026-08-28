@@ -1,3 +1,4 @@
+using System;
 using System.ComponentModel;
 using System.Windows;
 using Foundry.Presentation.ViewModels;
@@ -13,6 +14,20 @@ public partial class MainWindow : Window
     }
 
     private void OnExitClick(object sender, RoutedEventArgs e) => Close();
+
+    /// <summary>
+    /// En pantallas chicas (portátiles 1366×768) el tamaño "restaurado" por defecto es más alto
+    /// que el área de trabajo y la barra de título queda fuera de pantalla. Se recorta al
+    /// <see cref="SystemParameters.WorkArea"/> antes de mostrar la ventana.
+    /// </summary>
+    protected override void OnSourceInitialized(EventArgs e)
+    {
+        base.OnSourceInitialized(e);
+
+        var work = SystemParameters.WorkArea;
+        Width = Math.Min(Width, work.Width);
+        Height = Math.Min(Height, work.Height);
+    }
 
     protected override void OnClosing(CancelEventArgs e)
     {

@@ -18,13 +18,13 @@ build del juego** o, peor, pasan silenciosamente al balance.
 
 **Foundry** es la herramienta que se mete en el medio: los diseñadores editan el contenido con un
 formulario por entidad, ven en vivo el JSON que se va a guardar, y la herramienta **valida el
-game data completo** y bloquea el guardado si hay algo que rompería el pipeline.
+game data completo** — con un panel siempre visible y un chequeo duro antes de cerrar.
 
 ## Screenshots
 
-> _Pendiente: capturar 3 — (1) ventana principal con una entidad seleccionada en el Inspector,
-> (2) el panel de validación con un error y un aviso, (3) la pestaña Asistente con una propuesta.
-> Guardarlas en `docs/img/` y enlazarlas acá._
+| Editor + Inspector | Validación del game data | Asistente con IA |
+|---|---|---|
+| ![Ventana principal con una entidad en el Inspector](docs/img/01-inspector.png) | ![Panel de validación con un error y un aviso](docs/img/02-validacion.png) | ![Pestaña Asistente con una propuesta de entidad](docs/img/03-asistente.png) |
 
 ## Correr
 
@@ -35,14 +35,17 @@ dotnet run --project src/Foundry.App
 ```
 
 Requiere el **.NET 8 SDK**; para desarrollo, Visual Studio 2026 Community con el workload
-".NET desktop development". Al arrancar carga
+".NET desktop development". En el primer arranque copia
 [`Samples/tower-defense.json`](src/Foundry.App/Samples/tower-defense.json) (12 entidades, con un
-"typo" a propósito que la validación detecta) y hay un
+"typo" a propósito que la validación detecta) a `Documentos\Foundry\` y lo abre desde ahí. Hay un
 [`Samples/extra-troops.csv`](src/Foundry.App/Samples/extra-troops.csv) para probar el importador.
 
 Para el asistente con IA, ver [ADR 0011](docs/adr/0011-asistente-ia.md): por defecto usa un
-proveedor `stub` (sin setup); se cambia a `claude-code` / `anthropic` / `ollama` en
-`appsettings.json`.
+proveedor `stub` (sin setup ni credenciales); se cambia a `claude-code` / `anthropic` / `ollama`
+en `appsettings.json` (o en `appsettings.Local.json`, ignorado por git, ver
+[`appsettings.Local.json.example`](src/Foundry.App/appsettings.Local.json.example)). El repo no
+lleva ninguna API key: `claude-code` usa la sesión local del CLI y `anthropic` toma la key de
+`appsettings.Local.json` o de la variable de entorno `Assistant__ApiKey`.
 
 ## Qué hace
 
@@ -55,15 +58,18 @@ proveedor `stub` (sin setup); se cambia a `claude-code` / `anthropic` / `ollama`
   solo paso).
 - **Validación en dos capas**: por campo mientras editás (borde rojo + motivo), y del game data
   completo en un **panel siempre visible** — rangos, requeridos, referencias rotas, coherencia de
-  cadenas de mejora, ciclos. Un click en un problema lleva a la entidad. Los errores **bloquean el
-  guardado**; los avisos de balance no.
+  cadenas de mejora, ciclos. Un click en un problema lleva a la entidad. Al cerrar corre el
+  chequeo completo y avisa si hay errores o cambios sin guardar.
 - **Preview JSON en vivo** de la entidad — exactamente lo que se guarda en disco.
 - **"Usado por"**: qué entidades referencian a la seleccionada, antes de borrar o renombrar.
 - **Importar CSV**: trae entidades de una planilla mapeando columnas al esquema.
 - **Asistente con IA**: acciones concretas sobre la entidad abierta ("Analizar", "Cadena de
   mejora", "¿Balance?") o texto libre. El modelo **propone** entidades; el usuario las revisa y
   las aplica con undo. Proveedor intercambiable por config.
-- **Cambios sin guardar**: `*` en el título, contador en la status bar, prompt al abrir/cerrar.
+- **Edición libre, guardado explícito**: editás y navegás sin fricción; `Guardar` (Ctrl+S)
+  escribe todo el documento. No bloquea por errores de validación (deja guardar trabajo en curso;
+  el chequeo duro es al cerrar). `*` en el título mientras hay cambios sin guardar.
+- **Recientes** (menú *Archivo*) y **tema claro / oscuro** con toggle en vivo.
 
 ## Arquitectura
 
@@ -119,7 +125,7 @@ Foundry.sln
 | [0007](docs/adr/0007-viewmodels-sin-wpf.md) | ViewModels sin WPF; templates implícitos vs `DataTemplateSelector` |
 | [0008](docs/adr/0008-undo-redo-y-validacion.md) | Undo/redo (command pattern, coalescing) y validación en dos capas |
 | [0009](docs/adr/0009-importadores.md) | `IContentImporter` + CSV dirigido por esquema |
-| [0010](docs/adr/0010-theming.md) | Pasada de diseño clara, sin tema oscuro |
+| [0010](docs/adr/0010-theming.md) | Theming: sistema de paleta con Light/Dark en runtime (`ResourceDictionary` + `DynamicResource`) |
 | [0011](docs/adr/0011-asistente-ia.md) | Asistente con IA: puerto `IChatCompletion` + proveedor elegido por config |
 | [0012](docs/adr/0012-proyecto-multi-archivo.md) | Un archivo por ahora; proyecto multi-archivo pendiente |
 
@@ -157,21 +163,22 @@ manual.**
 
 ## Testing
 
-`xUnit` + `FluentAssertions`. **86 tests**, sobre comportamiento real (no getters triviales).
+`xUnit` + `FluentAssertions`. **92 tests**, sobre comportamiento real (no getters triviales).
 
 | Proyecto | Cubre |
 |---|---|
 | Core | `EntityId`, `ContentDatabase`, `EditableSchema` (inferencia de `FieldKind`, rango, referencias, cache), `ReferenceGraph`, `ContentCloner` |
 | Application | `UndoStack` + coalescing, `SetFieldValueAction`, `Add/RemoveEntitiesAction`, `ContentValidator` (rango / requerido / referencia rota / cadena de mejora / ciclos) |
 | Infrastructure | round-trip JSON, polimorfismo `$type`, tipo desconocido, PascalCase de un modelo, importador CSV (mapeo por nombre/etiqueta, comillas, errores con línea), `ContentAssistant` (parseo, fences, entidades inválidas) |
-| Presentation | `MainViewModel` (árbol, selección, dirty, save bloqueado, undo/redo, filtro, new/duplicate/delete, panel de validación, navegación a un issue), `InspectorViewModel`, `AssistantViewModel` (habilitación, propuesta, acciones rápidas, errores). Sin runner de WPF gracias al split de assemblies |
+| Presentation | `MainViewModel` (árbol, selección, dirty por profundidad de pila, guardado + "guardar como" del ejemplo, undo/redo, filtro, new/duplicate/delete, panel de validación, navegación a un issue, aplicar propuesta de IA, tema), `InspectorViewModel`, `AssistantViewModel` (habilitación, propuesta, acciones rápidas, errores). Sin runner de WPF gracias al split de assemblies |
 
 ## Fuera de alcance (a propósito)
 
 - **Editor de grafo** (diálogos / skill trees con nodos): mucho tiempo en rendering custom, poco
   en la historia de ingeniería.
-- **Librería de UI de terceros / tema oscuro completo**: el tema se hace con `ResourceDictionary`
-  para mostrar dominio de recursos y estilos ([ADR 0010](docs/adr/0010-theming.md)).
+- **Librería de UI de terceros** (MahApps, Material, etc.): el tema y los `ControlTemplate` se
+  hacen a mano con `ResourceDictionary` para mostrar dominio de recursos y estilos
+  ([ADR 0010](docs/adr/0010-theming.md)).
 - **`DataTemplateSelector`**: los templates de campo se eligen por tipo de ViewModel, no por un
   valor en runtime — para eso los templates implícitos son la herramienta correcta.
 - **Integración con Perforce / pipeline de build real**: se menciona como extensión.
@@ -182,8 +189,16 @@ manual.**
   **un archivo** = un juego. Para varios juegos, o para contenido de un juego partido en varios
   archivos, haría falta un `game.foundryproj` + un selector de proyectos recientes. El cambio duro
   es que `MainViewModel` asume "un archivo abierto".
-- **Lista de recientes** (paso previo, chico): menú *Archivo → Recientes*.
-- **Importación CSV undoable**: reusar `AddEntitiesAction`.
+- **Importación CSV undoable**: reusar `AddEntitiesAction` (hoy la importación limpia el historial).
+- **`Exportar` con gate duro**: separar "guardar" (siempre) de "exportar al juego" (bloquea si
+  hay errores). Hoy el chequeo duro es solo un aviso al cerrar ([ADR 0008](docs/adr/0008-undo-redo-y-validacion.md)).
+- **Workflow de guardado por entidad**: prototipo en la rama `save-workflow-wip` (transacción por
+  entidad, revertir al cambiar de selección) — se pausó por ser un modelo mental poco intuitivo.
 - **Streaming** en el asistente y few-shot examples en el prompt para modelos chicos.
 - **Fine-tuning** de un modelo local con el contenido ya balanceado del estudio.
 - **Empaquetado**: MSIX + auto-update para distribuir la herramienta al equipo.
+
+## Licencia
+
+Proyecto de portfolio de **Juan Martín Lacal de Castro**, publicado sólo para evaluación en el
+marco de una postulación laboral. Ver [`LICENSE`](LICENSE).

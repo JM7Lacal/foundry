@@ -35,6 +35,12 @@ public sealed class UndoStack
 
     public bool CanRedo => _redo.Count > 0;
 
+    /// <summary>
+    /// Cantidad de pasos que se pueden deshacer. Sirve para marcar el punto guardado y saber si
+    /// el documento esta "sucio" (profundidad actual != profundidad al guardar).
+    /// </summary>
+    public int UndoDepth => _undo.Count;
+
     /// <summary>Se dispara despues de cualquier cambio en la pila (para refrescar comandos/UI).</summary>
     public event EventHandler? Changed;
 

@@ -47,6 +47,13 @@ project.assets.json
 *.nuget.props
 *.nuget.targets
 
+## Secretos / config local (nunca subir credenciales)
+appsettings.Local.json
+appsettings.*.Local.json
+*.local.json
+.env
+secrets.json
+
 ## OS
 .DS_Store
 Thumbs.db

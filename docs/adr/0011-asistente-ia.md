@@ -36,8 +36,24 @@ Proveedores (una clase cada uno, en Infrastructure):
 | `claude-code` | CLI `claude -p` | incluido en la suscripcion | `claude` en el PATH, uso individual |
 
 **El unico lugar donde se elige** es `App.RegisterAssistantProvider`, manejado por config:
-`appsettings.json → Assistant:Provider` (y `ApiKey` / `Model`). Cambiar de modelo = editar una
-palabra, sin recompilar. Agregar un proveedor nuevo = una clase `IChatCompletion` + un `case`.
+`Assistant:Provider` (y `ApiKey` / `Model`). Cambiar de modelo = editar una palabra, sin
+recompilar. Agregar un proveedor nuevo = una clase `IChatCompletion` + un `case`.
+
+### Credenciales
+
+El default `claude-code` **no usa API key**: shellea `claude -p` y hereda la sesion local de
+Claude Code (token en `%APPDATA%\Claude` / keychain del SO, fuera del proyecto). Por eso el repo
+no tiene ni necesita secretos.
+
+Para `anthropic`, la key se lee en este orden (gana el ultimo):
+
+1. `appsettings.json` — **siempre vacio**, va al repo.
+2. `appsettings.Local.json` — ignorado por git (`.gitignore` + un `.example` de plantilla),
+   se copia al output asi sobrevive a los rebuilds. Aca va la key en una maquina de dev.
+3. Variable de entorno `Assistant__ApiKey` — para CI o para no tener el secreto en ningun archivo.
+
+`RegisterAssistantProvider` trata `""` como "no seteado", asi un campo vacio en el JSON no pisa
+a la variable de entorno.
 
 ## Consecuencias
 

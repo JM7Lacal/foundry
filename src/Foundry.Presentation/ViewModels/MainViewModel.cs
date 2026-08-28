@@ -29,6 +29,12 @@ public partial class MainViewModel : ObservableObject
 
     private ContentDatabase _database = new();
     private readonly Dictionary<EntityId, NodeBadge> _badgeByEntity = [];
+    private readonly Dictionary<EntityId, string> _issueTextByEntity = [];
+
+    /// <summary>Profundidad del <see cref="UndoStack"/> en el ultimo guardado (o carga). El
+    /// documento esta "sucio" mientras la profundidad actual difiera de este valor; asi, deshacer
+    /// hasta el punto guardado vuelve a marcar "limpio".</summary>
+    private int _savedUndoDepth;
 
     [ObservableProperty]
     private int _entityCount;
@@ -128,24 +134,32 @@ public partial class MainViewModel : ObservableObject
     /// <summary>Entidad seleccionada en el arbol, o <c>null</c> si hay una categoria o nada.</summary>
     public ContentEntity? SelectedEntity => (SelectedTreeItem as EntityNodeViewModel)?.Entity;
 
-    public Task LoadFromAsync(string path) => LoadFromAsync(path, remember: true);
+    /// <summary>Abre un archivo del usuario (queda como archivo actual y en "Recientes").</summary>
+    public Task LoadFromAsync(string path) => LoadContentAsync(path, asFile: true);
 
-    public async Task LoadFromAsync(string path, bool remember)
+    /// <summary>Carga el ejemplo empaquetado como documento "sin titulo": el primer guardado
+    /// siempre pide destino, para no escribir dentro de <c>bin/</c> (que se regenera en cada build).</summary>
+    public Task LoadSampleAsync(string path) => LoadContentAsync(path, asFile: false);
+
+    private async Task LoadContentAsync(string path, bool asFile)
     {
         StatusMessage = "Cargando...";
 
         try
         {
             _database = await _repository.LoadAsync(path).ConfigureAwait(true);
-            CurrentFilePath = path;
             _undoStack.Clear();
+            _savedUndoDepth = 0;
+            CurrentFilePath = asFile ? path : null;
             RebuildTree();
             RefreshValidation();
             Assistant.SetContext(_database);
             IsDirty = false;
-            StatusMessage = $"{_database.Count} entidades cargadas.";
+            StatusMessage = asFile
+                ? $"{_database.Count} entidades — {Path.GetFileName(path)}"
+                : $"{_database.Count} entidades (ejemplo). Al guardar te pido dónde.";
 
-            if (remember)
+            if (asFile)
             {
                 _recentFiles.Add(path);
                 RefreshRecent();
@@ -203,19 +217,20 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// Guarda todo el contenido a disco (Ctrl+S). No hay gate de validacion: el editor deja
+    /// guardar trabajo en progreso (los estados intermedios invalidos son normales al editar);
+    /// el panel muestra los avisos y el chequeo duro corre al cerrar. Si el archivo actual es el
+    /// ejemplo (dentro del directorio del <c>.exe</c>) o no hay archivo, pide "Guardar como".
+    /// </summary>
     [RelayCommand(CanExecute = nameof(CanSave))]
     private async Task SaveAsync()
     {
-        RefreshValidation();
-        if (ErrorCount > 0)
+        if (_database.Count == 0)
         {
-            IssuesPanelOpen = true;
-            StatusMessage = $"No se guardo: {ErrorCount} error(es) de validacion (ver el panel de abajo).";
             return;
         }
 
-        // El sample vive dentro del directorio del ejecutable y lo pisa cualquier build:
-        // ante eso, siempre pedir "Guardar como" a una ruta propia.
         var path = CurrentFilePath is { } current && !IsUnderAppDirectory(current)
             ? current
             : _filePicker.PickSaveFile("Contenido de juego (*.json)|*.json", "contenido.json");
@@ -230,8 +245,9 @@ public partial class MainViewModel : ObservableObject
             CurrentFilePath = path;
             _recentFiles.Add(path);
             RefreshRecent();
+            _savedUndoDepth = _undoStack.UndoDepth;
             IsDirty = false;
-            StatusMessage = $"Guardado en {Path.GetFileName(path)}";
+            StatusMessage = $"Guardado · {DateTime.Now:HH:mm:ss} — {Path.GetFileName(path)}";
         }
         catch (ContentRepositoryException ex)
         {
@@ -336,6 +352,7 @@ public partial class MainViewModel : ObservableObject
             }
 
             _undoStack.Clear();
+            _savedUndoDepth = -1; // sin historial pero con cambios: fuerza "sucio" hasta guardar
             RebuildTree();
             RefreshValidation();
             IsDirty = true;
@@ -397,6 +414,7 @@ public partial class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(ValidationSummary));
 
         _badgeByEntity.Clear();
+        _issueTextByEntity.Clear();
         foreach (var issue in issues)
         {
             var badge = issue.Severity == ValidationSeverity.Error ? NodeBadge.Error : NodeBadge.Warning;
@@ -404,6 +422,11 @@ public partial class MainViewModel : ObservableObject
             {
                 _badgeByEntity[issue.EntityId] = badge;
             }
+
+            var line = $"{(issue.Severity == ValidationSeverity.Error ? "Error" : "Aviso")} · {issue.Field}: {issue.Message}";
+            _issueTextByEntity[issue.EntityId] = _issueTextByEntity.TryGetValue(issue.EntityId, out var prev)
+                ? $"{prev}\n{line}"
+                : line;
         }
 
         ApplyBadges();
@@ -414,16 +437,24 @@ public partial class MainViewModel : ObservableObject
         foreach (var category in Categories)
         {
             var worst = NodeBadge.None;
+            var count = 0;
             foreach (var node in category.Entities)
             {
                 node.Badge = _badgeByEntity.GetValueOrDefault(node.Entity.Id);
+                node.BadgeTooltip = _issueTextByEntity.GetValueOrDefault(node.Entity.Id);
                 if (node.Badge > worst)
                 {
                     worst = node.Badge;
                 }
+
+                if (node.Badge != NodeBadge.None)
+                {
+                    count++;
+                }
             }
 
             category.Badge = worst;
+            category.BadgeTooltip = count == 0 ? null : $"{count} entidad(es) con problemas de validación";
         }
     }
 
@@ -435,17 +466,8 @@ public partial class MainViewModel : ObservableObject
 
     private bool HasSelectedEntity() => SelectedEntity is not null;
 
-    partial void OnSelectedTreeItemChanged(object? oldValue, object? newValue)
+    partial void OnSelectedTreeItemChanged(object? value)
     {
-        // Al dejar una entidad con cambios sin guardar, forzar la decision de guardar.
-        if (IsDirty
-            && oldValue is EntityNodeViewModel left
-            && !ReferenceEquals(left, newValue)
-            && _dialogs.Confirm("Tenés cambios sin guardar. ¿Guardar antes de seguir?", "Foundry"))
-        {
-            _ = SaveAsync();
-        }
-
         OnPropertyChanged(nameof(SelectedEntity));
         Inspector.Load(SelectedEntity, _database);
         Assistant.SetSelectedEntity(SelectedEntity);
@@ -491,46 +513,21 @@ public partial class MainViewModel : ObservableObject
 
     private void OnAssistantProposalApplied(object? sender, EventArgs e)
     {
-        var proposal = Assistant.Proposal;
+        var proposal = Assistant.Proposal.ToList();
         if (proposal.Count == 0)
         {
             return;
         }
 
+        // Igual que crear una entidad a mano: entra a la base via undo stack y se persiste con
+        // Ctrl+S como todo lo demas. Se selecciona la nueva para que se vea.
         _undoStack.Execute(new AddEntitiesAction(_database, proposal));
         RebuildTree();
-        _ = PersistAfterAssistantAsync(proposal.Count);
-    }
-
-    /// <summary>
-    /// Las entidades que aplica el asistente se guardan a disco sin pasar por la validacion
-    /// (el panel muestra los avisos). Si no hay archivo real todavia, se pide destino una vez.
-    /// </summary>
-    private async Task PersistAfterAssistantAsync(int count)
-    {
-        var path = CurrentFilePath is { } current && !IsUnderAppDirectory(current)
-            ? current
-            : _filePicker.PickSaveFile("Contenido de juego (*.json)|*.json", "contenido.json");
-
-        if (path is null)
-        {
-            StatusMessage = $"Agregadas {count} entidad(es). Guardá para persistir.";
-            return;
-        }
-
-        try
-        {
-            await _repository.SaveAsync(_database, path).ConfigureAwait(true);
-            CurrentFilePath = path;
-            _recentFiles.Add(path);
-            RefreshRecent();
-            IsDirty = false;
-            StatusMessage = $"{count} entidad(es) de la IA agregadas y guardadas en {Path.GetFileName(path)}.";
-        }
-        catch (ContentRepositoryException ex)
-        {
-            StatusMessage = $"Agregadas, pero no se pudo guardar: {ex.Message}";
-        }
+        RefreshValidation();
+        SelectEntity(proposal[^1].Id);
+        StatusMessage = proposal.Count == 1
+            ? $"Agregada «{proposal[0].Name}» (propuesta de la IA). Guardá con Ctrl+S."
+            : $"Agregadas {proposal.Count} entidades de la IA. Guardá con Ctrl+S.";
     }
 
     private static bool IsUnderAppDirectory(string path)
@@ -547,10 +544,8 @@ public partial class MainViewModel : ObservableObject
 
     private void OnUndoStackChanged(object? sender, EventArgs e)
     {
-        if (_undoStack.CanUndo || _undoStack.CanRedo)
-        {
-            IsDirty = true;
-        }
+        // Sucio = la pila difiere del punto guardado (deshacer hasta ahi vuelve a "limpio").
+        IsDirty = _undoStack.UndoDepth != _savedUndoDepth;
 
         if (_database.Count != EntityCount)
         {
@@ -565,7 +560,11 @@ public partial class MainViewModel : ObservableObject
         UndoCommand.NotifyCanExecuteChanged();
         RedoCommand.NotifyCanExecuteChanged();
 
-        StatusMessage = Inspector.HasErrors ? "Cambios sin guardar — hay errores de validacion." : "Cambios sin guardar.";
+        StatusMessage = !IsDirty
+            ? "Sin cambios sin guardar."
+            : Inspector.HasErrors
+                ? "Cambios sin guardar — hay errores de validacion."
+                : "Cambios sin guardar.";
     }
 
     private void UpdatePreview() =>

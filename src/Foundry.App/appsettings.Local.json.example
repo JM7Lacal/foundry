@@ -1,0 +1,13 @@
+// Copiá este archivo como "appsettings.Local.json" (queda ignorado por git) y ajustá el provider.
+// Se carga despues de appsettings.json y pisa sus valores. Tambien se copia al output en cada build,
+// asi que tu preferencia local sobrevive a los rebuilds.
+{
+  "Assistant": {
+    "Provider": "claude-code"
+
+    // Para la API de Anthropic:
+    // "Provider": "anthropic",
+    // "ApiKey": "sk-ant-...",   <-- o mejor la variable de entorno Assistant__ApiKey
+    // "Model": "claude-haiku-4-5-20251001"
+  }
+}

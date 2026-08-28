@@ -35,9 +35,10 @@ antes de exportar al juego (un costo negativo o una referencia rota rompen el bu
    **por campo** (`CheckRequired`, `CheckRange`, `CheckReference`) recorriendo el `EditableSchema`,
    y **por entidad** (`CheckUpgradeChain`). Devuelve `ValidationIssue`s con `Severity`:
    - **Error** (falta un requerido, fuera de rango, referencia rota, cadena circular): rompe el
-     parser del juego → `SaveAsync` **no guarda**.
+     parser del juego → se marca en rojo en el panel y en el arbol, y `OnClosing` avisa antes de
+     salir. No bloquea el guardado en curso (ver "Dirty tracking y guardado").
    - **Warning** (una entidad supera en un stat de `Progression` a la que declara como "mejora a"):
-     huele mal pero no rompe nada → se avisa, el guardado sigue.
+     huele mal pero no rompe nada → se avisa.
 
 `CheckUpgradeChain` compara los campos marcados `[EditableProperty(Progression = true)]`
 (daño, vida, costo) contra los de la entidad referenciada, y detecta ciclos. Las reglas son
@@ -45,20 +46,33 @@ listas: agregar una no toca `Validate`.
 
 ### Dirty tracking y guardado
 
-`MainViewModel.IsDirty` → `true` en cualquier cambio del `UndoStack`, `false` al guardar o
-cargar. Se ve como `*` en el titulo y en la status bar.
+Modelo: **edicion libre en memoria, guardado explicito.** Se edita cualquier cosa sin fricción;
+lo que persiste a disco lo decide el usuario con Ctrl+S.
 
-- **Editar campos** no autoguarda (decision del usuario: prefiere el control).
-- **Al dejar una entidad con cambios sin guardar** (cambio de seleccion en el arbol) →
-  *"¿Guardar antes de seguir?"* [Guardar y seguir] / [Seguir sin guardar]. Fuerza la disciplina
-  de guardar sin ser un autoguardado.
-- **Al aplicar una propuesta del asistente** → se persiste a disco automaticamente (sin pasar
-  por el gate de validacion; el panel muestra los avisos). Si no hay archivo propio todavia,
-  se pide "Guardar como" una vez.
-- **`SaveAsync` (Ctrl+S)** mantiene el gate: si hay errores no guarda y abre el panel. Y si el
-  archivo actual esta dentro del directorio del ejecutable (el sample), fuerza "Guardar como".
+- **Dirty por profundidad de pila**: `MainViewModel` guarda `_savedUndoDepth` (el
+  `UndoStack.UndoDepth` al cargar o guardar). `IsDirty` = "la profundidad actual difiere de esa".
+  Deshacer a mano hasta el estado guardado vuelve a marcar "limpio". Se ve como `*` en el titulo.
+- **Editar campos / cambiar de entidad** no autoguarda ni pregunta nada. Los pasos se apilan en
+  el `UndoStack` y quedan pendientes hasta el próximo guardado.
+- **Guardar (Ctrl+S)** escribe **toda** la base a disco. **Sin gate de validacion**: el editor
+  deja guardar trabajo en progreso — los estados intermedios invalidos son normales al editar, y
+  bloquear el guardado hace perder trabajo. El panel de problemas esta siempre visible y el
+  chequeo duro corre al cerrar. Si el archivo actual es el ejemplo (dentro del directorio del
+  `.exe`) o no hay archivo, pide "Guardar como".
+- **El ejemplo empaquetado**: en el primer arranque se copia a `Documentos\Foundry\` y se abre
+  desde ahi como archivo normal → Ctrl+S guarda sin pedir destino y el trabajo sobrevive a los
+  rebuilds (que regeneran `bin\` y se llevaban puesto lo guardado). Si Documentos no se puede
+  escribir, cae a abrirlo como documento "sin titulo" (`CurrentFilePath = null`, primer guardado
+  pide destino).
+- **Aplicar una propuesta del asistente** = igual que crear una entidad a mano: entra a la base
+  por el `UndoStack` (deshacible), se selecciona para que se vea, y se persiste con Ctrl+S como
+  todo lo demas.
 - **Al cerrar** (`MainWindow.OnClosing`): corre la validacion completa (abre el panel) y, si hay
   errores o cambios sin guardar, avisa — se puede cerrar igual.
+
+> Hubo iteraciones con autoguardado y con una "transaccion por entidad" (revertir la entidad al
+> cambiar de seleccion sin guardar). Ambas confundian más de lo que ayudaban; quedaron en la rama
+> `save-workflow-wip` por si se retoman.
 
 ## Consecuencias
 
@@ -66,10 +80,11 @@ cargar. Se ve como `*` en el titulo y en la status bar.
 - **+** El feedback de validacion es inmediato y ademas hay un chequeo global antes de exportar.
 - **+** `ContentValidator` es testeable en aislamiento y extensible por reglas.
 - **−** El chequeo por campo solo cubre la entidad abierta en el Inspector; el chequeo global
-  cubre todo pero recien al guardar. Es un compromiso consciente (no se instancian VMs para
-  las 500 entidades).
-- **−** `IsDirty` no vuelve a `false` si el usuario deshace manualmente hasta el estado guardado
-  (se marcaria "limpio" solo tras guardar). Simplificacion aceptada.
+  cubre todo pero recien al validar/cerrar. Es un compromiso consciente (no se instancian VMs
+  para las 500 entidades).
+- **−** El chequeo de "datos rotos al exportar" es blando: avisa al cerrar pero no impide
+  guardar. Se prioriza no perder trabajo; un `Exportar` separado con gate duro seria el
+  siguiente paso.
 - **−** `MainWindow.OnClosing` y el prompt de cierre viven en el code-behind: el ciclo de vida
   de la ventana no es bindeable y es el caso canonico de code-behind aceptable.
 
@@ -81,3 +96,10 @@ cargar. Se ve como `*` en el titulo y en la status bar.
   flexible que `INotifyDataErrorInfo` (que permite errores async y multiples por propiedad).
 - **Bloquear la edicion de valores invalidos**: peor UX — el usuario necesita pasar por estados
   intermedios invalidos mientras tipea.
+- **Autoguardado al editar**: descartado por el usuario — prefiere control explicito del momento
+  de escritura, y el autoguardado persiste estados intermedios rotos.
+- **Prompt "¿guardar?" a nivel documento al cambiar de entidad**: molesto (salta aunque no
+  hayas tocado la entidad que dejas) y confuso (el "no" dejaba los cambios igual).
+- **Transaccion por entidad** (revertir la entidad al cambiar de seleccion sin guardar): más
+  predecible que el prompt, pero seguia siendo un modelo mental raro para un editor. Prototipo
+  en `save-workflow-wip`.

@@ -77,7 +77,12 @@ public partial class App : System.Windows.Application
         _host = Host.CreateDefaultBuilder()
             .ConfigureAppConfiguration(builder => builder
                 .SetBasePath(AppContext.BaseDirectory)
-                .AddJsonFile("appsettings.json", optional: true))
+                .AddJsonFile("appsettings.json", optional: true)
+                // Override local, ignorado por git: aca (y solo aca) van las API keys.
+                .AddJsonFile("appsettings.Local.json", optional: true)
+                // Ultima palabra: variables de entorno (p. ej. Assistant__ApiKey) para no
+                // tener secretos en ningun archivo.
+                .AddEnvironmentVariables())
             .ConfigureServices((context, services) =>
             {
                 services.AddFoundryApplication();
@@ -105,13 +110,17 @@ public partial class App : System.Windows.Application
 
     /// <summary>
     /// El unico lugar donde se elige el modelo del asistente. Se puede cambiar por config
-    /// (<c>appsettings.json</c> → <c>Assistant:Provider</c>) sin recompilar.
+    /// (<c>appsettings.json</c> / <c>appsettings.Local.json</c> / variable de entorno
+    /// <c>Assistant__Provider</c> → <c>Assistant:Provider</c>) sin recompilar. Las API keys van
+    /// solo por <c>appsettings.Local.json</c> (ignorado por git) o <c>Assistant__ApiKey</c>.
     /// </summary>
     private static void RegisterAssistantProvider(IConfiguration configuration, IServiceCollection services)
     {
-        var provider = configuration["Assistant:Provider"] ?? "stub";
-        var model = configuration["Assistant:Model"];
-        var apiKey = configuration["Assistant:ApiKey"] ?? string.Empty;
+        var provider = Blank(configuration["Assistant:Provider"]) ?? "stub";
+        var model = Blank(configuration["Assistant:Model"]);
+        var apiKey = Blank(configuration["Assistant:ApiKey"]) ?? string.Empty;
+
+        static string? Blank(string? value) => string.IsNullOrWhiteSpace(value) ? null : value;
 
         switch (provider.Trim().ToLowerInvariant())
         {
@@ -144,14 +153,51 @@ public partial class App : System.Windows.Application
         }
     }
 
-    /// <summary>Carga el archivo de ejemplo que se copia junto al ejecutable, si existe.</summary>
+    /// <summary>
+    /// En el primer arranque copia el ejemplo empaquetado a <c>Documentos\Foundry</c> y lo abre
+    /// desde ahi, como un archivo normal: asi Guardar (Ctrl+S) escribe sin pedir destino y el
+    /// trabajo sobrevive a los rebuilds (que regeneran <c>bin\</c>). Si Documentos no se puede
+    /// escribir, cae a abrir el bundle como documento "sin titulo".
+    /// </summary>
     private async Task LoadBundledSampleAsync()
     {
-        var samplePath = Path.Combine(AppContext.BaseDirectory, "Samples", "tower-defense.json");
-        if (_host is not null && File.Exists(samplePath))
+        if (_host is null)
         {
-            var viewModel = _host.Services.GetRequiredService<MainViewModel>();
-            await viewModel.LoadFromAsync(samplePath, remember: false).ConfigureAwait(true);
+            return;
+        }
+
+        var bundled = Path.Combine(AppContext.BaseDirectory, "Samples", "tower-defense.json");
+        if (!File.Exists(bundled))
+        {
+            return;
+        }
+
+        var userCopy = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
+            "Foundry",
+            "tower-defense.json");
+
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(userCopy)!);
+            if (!File.Exists(userCopy))
+            {
+                File.Copy(bundled, userCopy);
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Security.SecurityException)
+        {
+            // Documentos no disponible: se usa el bundle directamente.
+        }
+
+        var viewModel = _host.Services.GetRequiredService<MainViewModel>();
+        if (File.Exists(userCopy))
+        {
+            await viewModel.LoadFromAsync(userCopy).ConfigureAwait(true);
+        }
+        else
+        {
+            await viewModel.LoadSampleAsync(bundled).ConfigureAwait(true);
         }
     }
 

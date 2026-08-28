@@ -13,7 +13,12 @@ public sealed partial class EntityNodeViewModel : ObservableObject
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasIssue))]
     [NotifyPropertyChangedFor(nameof(IsErrorBadge))]
+    [NotifyPropertyChangedFor(nameof(IsWarningBadge))]
     private NodeBadge _badge;
+
+    /// <summary>Texto de los problemas de validacion de esta entidad, para el tooltip del badge.</summary>
+    [ObservableProperty]
+    private string? _badgeTooltip;
 
     public EntityNodeViewModel(ContentEntity entity)
     {
@@ -28,6 +33,8 @@ public sealed partial class EntityNodeViewModel : ObservableObject
     public bool HasIssue => Badge != NodeBadge.None;
 
     public bool IsErrorBadge => Badge == NodeBadge.Error;
+
+    public bool IsWarningBadge => Badge == NodeBadge.Warning;
 
     /// <summary>Fuerza al arbol a releer <see cref="DisplayName"/> tras editar el nombre en el Inspector.</summary>
     public void Refresh() => OnPropertyChanged(nameof(DisplayName));

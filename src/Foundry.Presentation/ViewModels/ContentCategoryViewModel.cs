@@ -12,7 +12,12 @@ public sealed partial class ContentCategoryViewModel : ObservableObject
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasIssue))]
     [NotifyPropertyChangedFor(nameof(IsErrorBadge))]
+    [NotifyPropertyChangedFor(nameof(IsWarningBadge))]
     private NodeBadge _badge;
+
+    /// <summary>Resumen de problemas de la categoria, para el tooltip del badge.</summary>
+    [ObservableProperty]
+    private string? _badgeTooltip;
 
     public ContentCategoryViewModel(string name)
     {
@@ -26,4 +31,6 @@ public sealed partial class ContentCategoryViewModel : ObservableObject
     public bool HasIssue => Badge != NodeBadge.None;
 
     public bool IsErrorBadge => Badge == NodeBadge.Error;
+
+    public bool IsWarningBadge => Badge == NodeBadge.Warning;
 }

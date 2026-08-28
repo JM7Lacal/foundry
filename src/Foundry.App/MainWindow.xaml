@@ -10,10 +10,22 @@
         mc:Ignorable="d"
         d:DataContext="{d:DesignInstance Type=vm:MainViewModel}"
         Title="{Binding Title}"
-        Height="720" Width="1180" MinHeight="560" MinWidth="920"
-        WindowStartupLocation="CenterScreen">
+        Height="720" Width="1180" MinHeight="480" MinWidth="920"
+        WindowStartupLocation="CenterScreen"
+        WindowState="Maximized">
 
     <Window.Resources>
+        <!-- Badge de validacion: triangulo ambar = aviso, circulo rojo = error. NO es un
+             indicador de "modificado" (eso es el * del titulo). Tooltip con el detalle. -->
+        <DataTemplate x:Key="ValidationBadge">
+            <Grid VerticalAlignment="Center" Margin="7,0,0,0" ToolTip="{Binding BadgeTooltip}">
+                <Path Data="M 5,0.5 L 9.5,8.5 L 0.5,8.5 Z" Fill="{DynamicResource WarnBrush}"
+                      Visibility="{Binding IsWarningBadge, Converter={x:Static conv:BooleanToVisibilityConverter.VisibleWhenTrue}}" />
+                <Ellipse Width="7" Height="7" Fill="{DynamicResource DangerBrush}"
+                         Visibility="{Binding IsErrorBadge, Converter={x:Static conv:BooleanToVisibilityConverter.VisibleWhenTrue}}" />
+            </Grid>
+        </DataTemplate>
+
         <HierarchicalDataTemplate DataType="{x:Type vm:ContentCategoryViewModel}"
                                   ItemsSource="{Binding Entities}">
             <StackPanel Orientation="Horizontal">
@@ -23,18 +35,16 @@
                 <TextBlock Text="{Binding Name}" FontWeight="SemiBold" VerticalAlignment="Center" />
                 <TextBlock Text="{Binding Entities.Count, StringFormat=' ({0})'}"
                            Style="{StaticResource Muted}" VerticalAlignment="Center" />
-                <Ellipse Width="6" Height="6" Margin="7,0,0,0" VerticalAlignment="Center"
-                         Fill="{Binding IsErrorBadge, Converter={x:Static conv:IssueSeverityBrushConverter.Instance}}"
-                         Visibility="{Binding HasIssue, Converter={x:Static conv:BooleanToVisibilityConverter.VisibleWhenTrue}}" />
+                <ContentControl Content="{Binding}" ContentTemplate="{StaticResource ValidationBadge}"
+                                Visibility="{Binding HasIssue, Converter={x:Static conv:BooleanToVisibilityConverter.VisibleWhenTrue}}" />
             </StackPanel>
         </HierarchicalDataTemplate>
 
         <DataTemplate DataType="{x:Type vm:EntityNodeViewModel}">
             <StackPanel Orientation="Horizontal">
                 <TextBlock Text="{Binding DisplayName}" Padding="2,1" VerticalAlignment="Center" />
-                <Ellipse Width="6" Height="6" Margin="7,0,0,0" VerticalAlignment="Center"
-                         Fill="{Binding IsErrorBadge, Converter={x:Static conv:IssueSeverityBrushConverter.Instance}}"
-                         Visibility="{Binding HasIssue, Converter={x:Static conv:BooleanToVisibilityConverter.VisibleWhenTrue}}" />
+                <ContentControl Content="{Binding}" ContentTemplate="{StaticResource ValidationBadge}"
+                                Visibility="{Binding HasIssue, Converter={x:Static conv:BooleanToVisibilityConverter.VisibleWhenTrue}}" />
             </StackPanel>
         </DataTemplate>
     </Window.Resources>
