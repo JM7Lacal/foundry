@@ -1,0 +1,6 @@
+{
+  "replies": [
+    "{\"answer\": \"No hay campos de invisibilidad ni de vuelo para las tropas: el esquema de troop solo cubre costo, dano, tipo de dano, cadencia, alcance, vida y armadura. Lo mas cercano a algo evasivo es una tropa de alto alcance y poca vida.\"}",
+    "{\"answer\": \"Invisible y volar no existen como campos en troop. Si buscas ese rol, puedo hacer una unidad de mucho alcance y poca vida, pero no puedo agregarle propiedades que el esquema no tiene.\"}"
+  ]
+}

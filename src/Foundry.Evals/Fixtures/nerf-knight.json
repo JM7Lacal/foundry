@@ -1,0 +1,6 @@
+{
+  "replies": [
+    "{\"rationale\": \"Bajo el dano del Caballero de 28 a 22 (~21%). El resto de sus stats queda igual.\", \"entities\": [{\"$type\": \"troop\", \"id\": \"troop.knight\", \"name\": \"Caballero\", \"cost\": 260, \"damage\": 22, \"damageType\": \"physical\", \"attacksPerSecond\": 1.0, \"attackRange\": 1.0, \"health\": 320, \"armor\": \"heavy\"}]}",
+    "{\"rationale\": \"Dano de 28 a 23 (~18%), dentro del rango pedido.\", \"entities\": [{\"$type\": \"troop\", \"id\": \"troop.knight\", \"name\": \"Caballero\", \"cost\": 260, \"damage\": 23, \"damageType\": \"physical\", \"attacksPerSecond\": 1.0, \"attackRange\": 1.0, \"health\": 320, \"armor\": \"heavy\"}]}"
+  ]
+}

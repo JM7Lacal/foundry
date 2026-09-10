@@ -1,0 +1,6 @@
+{
+  "replies": [
+    "{\"rationale\": \"Dos unidades de asedio: el Zapador barato para el early y el Bombardero caro para el late, con dano y costo escalados.\", \"entities\": [{\"$type\": \"troop\", \"id\": \"troop.sapper\", \"name\": \"Zapador\", \"cost\": 70, \"damage\": 14, \"damageType\": \"siege\", \"attacksPerSecond\": 0.8, \"attackRange\": 1.2, \"health\": 70, \"armor\": \"unarmored\"}, {\"$type\": \"troop\", \"id\": \"troop.bombardier\", \"name\": \"Bombardero\", \"cost\": 240, \"damage\": 46, \"damageType\": \"siege\", \"attacksPerSecond\": 0.7, \"attackRange\": 2.0, \"health\": 160, \"armor\": \"light\"}]}",
+    "{\"rationale\": \"Zapador economico y Ariete de asedio pesado para el late game.\", \"entities\": [{\"$type\": \"troop\", \"id\": \"troop.sapper\", \"name\": \"Zapador\", \"cost\": 60, \"damage\": 12, \"damageType\": \"siege\", \"attacksPerSecond\": 0.9, \"attackRange\": 1.0, \"health\": 65, \"armor\": \"unarmored\"}, {\"$type\": \"troop\", \"id\": \"troop.battering-ram\", \"name\": \"Ariete\", \"cost\": 260, \"damage\": 52, \"damageType\": \"siege\", \"attacksPerSecond\": 0.6, \"attackRange\": 1.5, \"health\": 200, \"armor\": \"heavy\"}]}"
+  ]
+}

@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Harness de evaluacion del asistente: define casos, los corre N veces contra un proveedor
+       (grabado o real), agrega pass rate y emite un reporte. Ver README y docs/adr/0013.
+       Sin argumentos corre contra los fixtures grabados (lo mismo que el gate de CI). -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>Foundry.Evals</RootNamespace>
+    <IsPackable>false</IsPackable>
+    <!-- Herramienta interna, no libreria: sin exigir doc-comment en cada miembro. -->
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Foundry.Application\Foundry.Application.csproj" />
+    <ProjectReference Include="..\Foundry.Infrastructure\Foundry.Infrastructure.csproj" />
+  </ItemGroup>
+
+  <!-- Content (no None) para que los fixtures viajen tambien al bin de los proyectos que
+       referencian este: el gate de CI vive en Foundry.Evals.Tests. -->
+  <ItemGroup>
+    <Content Include="Fixtures\*.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Link>Fixtures\%(Filename)%(Extension)</Link>
+    </Content>
+  </ItemGroup>
+
+</Project>

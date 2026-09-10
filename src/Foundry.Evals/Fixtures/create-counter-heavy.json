@@ -1,0 +1,6 @@
+{
+  "replies": [
+    "{\"rationale\": \"Alabardero anti-armadura: dano de asedio, fuerte contra pesada; costo y stats en linea con el Espadachin.\", \"entities\": [{\"$type\": \"troop\", \"id\": \"troop.halberdier\", \"name\": \"Alabardero\", \"cost\": 140, \"damage\": 22, \"damageType\": \"siege\", \"attacksPerSecond\": 0.9, \"attackRange\": 1.5, \"health\": 150, \"armor\": \"light\"}]}",
+    "{\"rationale\": \"Rompe-escudos: dano de asedio para ignorar armadura pesada, cadencia baja, cuerpo a cuerpo.\", \"entities\": [{\"$type\": \"troop\", \"id\": \"troop.shieldbreaker\", \"name\": \"Rompe-escudos\", \"cost\": 160, \"damage\": 26, \"damageType\": \"siege\", \"attacksPerSecond\": 0.8, \"attackRange\": 1.2, \"health\": 170, \"armor\": \"light\"}]}"
+  ]
+}

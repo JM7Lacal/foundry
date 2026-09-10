@@ -1,0 +1,6 @@
+{
+  "replies": [
+    "{\"answer\": \"No puedo crear niveles ni oleadas: el contenido editable son tropas, torres y enemigos, no hay un tipo \\\"nivel\\\" en el esquema. Si te sirve, puedo crear los enemigos que compondrian esas oleadas.\"}",
+    "{\"answer\": \"El esquema no tiene un tipo para niveles ni oleadas; solo troop, tower y enemy. Deciles a los disenadores si quieren que agregue ese tipo, o creo los enemigos sueltos.\"}"
+  ]
+}
