@@ -109,49 +109,69 @@ public partial class App : System.Windows.Application
     }
 
     /// <summary>
-    /// El unico lugar donde se elige el modelo del asistente. Se puede cambiar por config
-    /// (<c>appsettings.json</c> / <c>appsettings.Local.json</c> / variable de entorno
-    /// <c>Assistant__Provider</c> → <c>Assistant:Provider</c>) sin recompilar. Las API keys van
-    /// solo por <c>appsettings.Local.json</c> (ignorado por git) o <c>Assistant__ApiKey</c>.
+    /// El unico lugar donde se arma la pila del asistente. Por config (<c>appsettings.json</c> /
+    /// <c>appsettings.Local.json</c> / variables de entorno como <c>Assistant__Provider</c>), sin
+    /// recompilar: <c>Assistant:Provider</c> (primario), <c>Assistant:Fallback</c> (respaldo
+    /// opcional). El proveedor elegido se envuelve en <see cref="ResilientChatCompletion"/>
+    /// (reintentos + backoff + fallback + traza). Las API keys van solo por
+    /// <c>appsettings.Local.json</c> (ignorado por git) o <c>Assistant__ApiKey</c>.
     /// </summary>
     private static void RegisterAssistantProvider(IConfiguration configuration, IServiceCollection services)
     {
-        var provider = Blank(configuration["Assistant:Provider"]) ?? "stub";
+        var primary = Blank(configuration["Assistant:Provider"]) ?? "stub";
+        var fallback = Blank(configuration["Assistant:Fallback"]);
+
+        services.AddHttpClient();
+
+        // Observabilidad: ultimas llamadas en memoria + una linea JSON por llamada en disco.
+        var callLogPath = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            "Foundry",
+            "chat-calls.jsonl");
+        services.AddSingleton<ChatCallLog>(_ => new ChatCallLog(capacity: 100, filePath: callLogPath));
+        services.AddSingleton<IChatCallListener>(sp => sp.GetRequiredService<ChatCallLog>());
+
+        services.AddSingleton<IChatCompletion>(sp => new ResilientChatCompletion(
+            primary: BuildProvider(primary, configuration, sp),
+            fallback: fallback is null || string.Equals(fallback, primary, StringComparison.OrdinalIgnoreCase)
+                ? null
+                : BuildProvider(fallback, configuration, sp),
+            policy: ResiliencePolicy.Default,
+            listener: sp.GetRequiredService<IChatCallListener>()));
+    }
+
+    /// <summary>Construye un proveedor crudo por nombre. Agregar uno nuevo = un <c>case</c>.</summary>
+    private static IChatCompletion BuildProvider(string name, IConfiguration configuration, IServiceProvider sp)
+    {
         var model = Blank(configuration["Assistant:Model"]);
         var apiKey = Blank(configuration["Assistant:ApiKey"]) ?? string.Empty;
 
-        static string? Blank(string? value) => string.IsNullOrWhiteSpace(value) ? null : value;
-
-        switch (provider.Trim().ToLowerInvariant())
+        return name.Trim().ToLowerInvariant() switch
         {
-            case "claude-code":
-            case "claudecode":
-                var command = configuration["Assistant:Command"];
-                services.AddSingleton<IChatCompletion>(_ => new ClaudeCodeChatCompletion(command));
-                break;
+            "claude-code" or "claudecode" => new ClaudeCodeChatCompletion(configuration["Assistant:Command"]),
 
-            case "ollama":
-                services.AddHttpClient();
-                services.AddSingleton<IChatCompletion>(sp =>
-                    new OllamaChatCompletion(
-                        sp.GetRequiredService<IHttpClientFactory>().CreateClient(),
-                        model ?? "qwen2.5"));
-                break;
+            "ollama" => new OllamaChatCompletion(
+                sp.GetRequiredService<IHttpClientFactory>().CreateClient(),
+                model ?? "qwen2.5"),
 
-            case "anthropic":
-                services.AddHttpClient();
-                services.AddSingleton<IChatCompletion>(sp =>
-                    new AnthropicChatCompletion(
-                        sp.GetRequiredService<IHttpClientFactory>().CreateClient(),
-                        apiKey,
-                        model ?? "claude-haiku-4-5-20251001"));
-                break;
+            "anthropic" => new AnthropicChatCompletion(
+                sp.GetRequiredService<IHttpClientFactory>().CreateClient(),
+                apiKey,
+                model ?? "claude-haiku-4-5-20251001"),
 
-            default:
-                services.AddSingleton<IChatCompletion, StubChatCompletion>();
-                break;
-        }
+            "azure" or "azure-openai" or "foundry" => new AzureOpenAIChatCompletion(
+                sp.GetRequiredService<IHttpClientFactory>().CreateClient(),
+                endpoint: configuration["Assistant:Azure:Endpoint"] ?? string.Empty,
+                deployment: configuration["Assistant:Azure:Deployment"] ?? string.Empty,
+                apiKey: apiKey,
+                apiVersion: Blank(configuration["Assistant:Azure:ApiVersion"]),
+                model: model),
+
+            _ => new StubChatCompletion(),
+        };
     }
+
+    private static string? Blank(string? value) => string.IsNullOrWhiteSpace(value) ? null : value;
 
     /// <summary>
     /// En el primer arranque copia el ejemplo empaquetado a <c>Documentos\Foundry</c> y lo abre
