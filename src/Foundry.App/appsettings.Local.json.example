@@ -3,11 +3,24 @@
 // asi que tu preferencia local sobrevive a los rebuilds.
 {
   "Assistant": {
-    "Provider": "claude-code"
+    "Provider": "claude-code",
+    "Fallback": "stub"
 
     // Para la API de Anthropic:
     // "Provider": "anthropic",
     // "ApiKey": "sk-ant-...",   <-- o mejor la variable de entorno Assistant__ApiKey
     // "Model": "claude-haiku-4-5-20251001"
+
+    // Para Azure OpenAI / Azure AI Foundry:
+    // "Provider": "azure",
+    // "ApiKey": "<clave del recurso>",   <-- o Assistant__ApiKey
+    // "Azure": {
+    //   "Endpoint": "https://mi-recurso.openai.azure.com",
+    //   "Deployment": "gpt-4o-mini",
+    //   "ApiVersion": "2024-10-21"
+    // }
+
+    // PromptVersion: fijá una version del system prompt para comparar en evals.
+    // "PromptVersion": "assistant-system@v1"
   }
 }

@@ -1,0 +1,90 @@
+# CI de Foundry: build + tests + gate de evals del asistente.
+#
+# El gate de evals corre dentro de `dotnet test` (proyecto Foundry.Evals.Tests): cada caso se
+# evalua contra su fixture grabado, deterministamente, sin llamar a ningun modelo. El job
+# `evals_live` es opcional y pega contra un modelo real; necesita el secret ANTHROPIC_API_KEY y
+# solo se dispara manual o por schedule.
+
+trigger:
+  branches:
+    include:
+      - main
+
+pr:
+  branches:
+    include:
+      - main
+
+variables:
+  buildConfiguration: 'Release'
+  DOTNET_NOLOGO: 'true'
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 'true'
+
+stages:
+  - stage: build_test
+    displayName: 'Build + tests + gate de evals'
+    jobs:
+      - job: build_test
+        # Windows: Foundry.App es WPF (net8.0-windows) y no compila en Linux.
+        pool:
+          vmImage: 'windows-latest'
+        steps:
+          - task: UseDotNet@2
+            displayName: 'SDK .NET 8'
+            inputs:
+              packageType: 'sdk'
+              version: '8.0.x'
+
+          - script: dotnet restore Foundry.sln
+            displayName: 'restore'
+
+          - script: dotnet build Foundry.sln -c $(buildConfiguration) --no-restore
+            displayName: 'build'
+
+          - script: >
+              dotnet test Foundry.sln -c $(buildConfiguration) --no-build
+              --logger trx --results-directory $(Agent.TempDirectory)/testresults
+            displayName: 'test (incluye el gate de evals)'
+
+          - task: PublishTestResults@2
+            condition: succeededOrFailed()
+            inputs:
+              testResultsFormat: 'VSTest'
+              testResultsFiles: '$(Agent.TempDirectory)/testresults/*.trx'
+              failTaskOnFailedTests: true
+
+          # Reporte legible del harness (sobre fixtures grabados, sin secrets).
+          - script: >
+              dotnet run --project src/Foundry.Evals -c $(buildConfiguration) --no-build --
+              run --reps 3 --out $(Build.ArtifactStagingDirectory)/evals
+            displayName: 'reporte de evals'
+
+          - publish: '$(Build.ArtifactStagingDirectory)/evals'
+            artifact: 'eval-report'
+            condition: succeededOrFailed()
+
+  - stage: evals_live
+    displayName: 'Evals contra un modelo real (opcional)'
+    dependsOn: build_test
+    condition: and(succeeded(), eq(variables['runLiveEvals'], 'true'))
+    jobs:
+      - job: evals_live
+        pool:
+          vmImage: 'ubuntu-latest'
+        steps:
+          - task: UseDotNet@2
+            inputs:
+              packageType: 'sdk'
+              version: '8.0.x'
+
+          - script: >
+              dotnet run --project src/Foundry.Evals -c $(buildConfiguration) --
+              run --provider anthropic --prompt assistant-system@v2 --reps 5
+              --out $(Build.ArtifactStagingDirectory)/evals-live
+            displayName: 'evals live (anthropic)'
+            env:
+              Assistant__ApiKey: $(ANTHROPIC_API_KEY)
+
+          - publish: '$(Build.ArtifactStagingDirectory)/evals-live'
+            artifact: 'eval-report-live'
+            condition: succeededOrFailed()

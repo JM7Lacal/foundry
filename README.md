@@ -63,7 +63,10 @@ lleva ninguna API key: `claude-code` usa la sesión local del CLI y `anthropic` 
 - **Importar CSV**: trae entidades de una planilla mapeando columnas al esquema.
 - **Asistente con IA**: acciones concretas sobre la entidad abierta ("Analizar", "Cadena de
   mejora", "¿Balance?") o texto libre. El modelo **propone** entidades; el usuario las revisa y
-  las aplica con undo. Proveedor intercambiable por config.
+  las aplica con undo. Proveedor intercambiable por config (stub / claude-code / anthropic /
+  ollama / **Azure OpenAI · Azure AI Foundry**), con **reintentos + backoff + fallback** y una
+  traza por llamada (latencia, tokens y costo estimados). System prompts **versionados** y un
+  **harness de evals** con gate de CI — ver [abajo](#el-asistente-prompts-resiliencia-y-evals).
 - **Edición libre, guardado explícito**: editás y navegás sin fricción; `Guardar` (Ctrl+S)
   escribe todo el documento. No bloquea por errores de validación (deja guardar trabajo en curso;
   el chequeo duro es al cerrar). `*` en el título mientras hay cambios sin guardar.
@@ -103,11 +106,15 @@ Foundry.sln
 │   │                           IContentImporter, IChatCompletion, ContentAssistant, ContentValidator,
 │   │                           UndoStack + acciones (SetFieldValue, AddEntities, RemoveEntities).
 │   ├── Foundry.Infrastructure  JSON repo/serializer (polimórficos), CsvContentImporter,
-│   │                           proveedores IChatCompletion (stub / anthropic / ollama / claude-code).
+│   │                           proveedores IChatCompletion (stub / anthropic / ollama / claude-code
+│   │                           / azure), ResilientChatCompletion (reintentos + fallback + traza),
+│   │                           ChatCallLog.
 │   ├── Foundry.Presentation    MainViewModel, InspectorViewModel, AssistantViewModel, field VMs.
-│   └── Foundry.App             MainWindow, InspectorView, AssistantView, converters, behaviors,
-│                               tema, appsettings.json, App.xaml.cs (elige el proveedor de IA).
-└── tests/                      Core / Application / Infrastructure / Presentation .Tests
+│   ├── Foundry.App             MainWindow, InspectorView, AssistantView, converters, behaviors,
+│   │                           tema, appsettings.json, App.xaml.cs (arma la pila del asistente).
+│   └── Foundry.Evals           Harness de evaluación del asistente: casos, EvalRunner, Expect,
+│                               fixtures grabados, reporte. Ejecutable + gate en tests/.
+└── tests/                      Core / Application / Infrastructure / Presentation / Evals .Tests
 ```
 
 ### Decisiones (ADRs)
@@ -126,6 +133,7 @@ Foundry.sln
 | [0010](docs/adr/0010-theming.md) | Theming: sistema de paleta con Light/Dark en runtime (`ResourceDictionary` + `DynamicResource`) |
 | [0011](docs/adr/0011-asistente-ia.md) | Asistente con IA: puerto `IChatCompletion` + proveedor elegido por config |
 | [0012](docs/adr/0012-proyecto-multi-archivo.md) | Un archivo por ahora; proyecto multi-archivo pendiente |
+| [0013](docs/adr/0013-evals-observabilidad-y-prompts.md) | Evals + gate de CI, resiliencia/telemetría de las llamadas, prompts versionados |
 
 ## El Inspector por reflexión
 
@@ -159,17 +167,53 @@ importador CSV, el menú *Nueva entidad* y el prompt del asistente la reconocen 
 (`ContentEntityCatalog` + `SchemaDescription`). No hay que tocar UI, serialización ni ningún
 registro manual.
 
+## El asistente: prompts, resiliencia y evals
+
+El [ADR 0013](docs/adr/0013-evals-observabilidad-y-prompts.md) tiene el detalle. En corto:
+
+**System prompts versionados.** Salen del código y viven como recursos en
+`src/Foundry.Application/Ai/Prompts/assistant-system.v{N}.txt`, con marcadores `{schema}` que se
+completan en runtime. `ContentAssistant` recibe la versión a usar (`Assistant:PromptVersion`, id o
+familia → última) y la propaga en `AssistantResult.PromptId`. `v2` es más estricto que `v1`
+(JSON-only, "no inventes campos", few-shot); el harness mide una contra otra.
+
+**Resiliencia + telemetría.** `ResilientChatCompletion` envuelve a cualquier proveedor y agrega,
+sin que el resto de la app se entere: reintentos con backoff exponencial, fallback a un segundo
+proveedor (`Assistant:Fallback`), y una `ChatCallReport` por llamada — proveedor, duración,
+intentos, tokens y costo estimados. `ChatCallLog` la guarda en memoria y como JSON Lines en
+`%APPDATA%\Foundry\chat-calls.jsonl`. Es el único `IChatCompletion` que ve la app; el proveedor
+crudo (incluido el de **Azure OpenAI / Azure AI Foundry**) queda detrás.
+
+**Harness de evals.** `Foundry.Evals` corre casos contra la misma pila que la app:
+
+```
+dotnet run --project src/Foundry.Evals -- run                       # fixtures grabados (lo del gate)
+dotnet run --project src/Foundry.Evals -- run --provider claude-code --prompt assistant-system@v2 --reps 5
+dotnet run --project src/Foundry.Evals -- record --provider claude-code   # regenera fixtures
+```
+
+Cada `EvalCase` fija un pedido, la base de la que parte y afirmaciones deterministas (`Expect.*`:
+propone / no propone, entidades válidas vía `ContentValidator`, id en convención, campo en rango,
+mantiene el id al modificar, respuesta JSON-only, latencia y costo bajo umbral). Cada caso se
+corre N veces y **pasa si su pass rate ≥ umbral** — la no-determinación está en el modelo, no en
+la verificación. El gate de CI (`Foundry.Evals.Tests`, dentro de `dotnet test`) usa `RecordedChat`
+con respuestas grabadas: determinista y sin red, detecta regresiones de parser / esquema / prompt.
+`azure-pipelines.yml` corre el gate y publica el reporte (`EvalReportRenderer` → Markdown + JSON);
+el stage `evals_live` pega contra un modelo real con un secret.
+
 ## Testing
 
-`xUnit` + `FluentAssertions`. 92 tests, sobre todo de la lógica de validación, undo/redo y el
-schema por reflexión.
+`xUnit` + `FluentAssertions`. 122 tests, sobre todo de la lógica de validación, undo/redo, el
+schema por reflexión y el asistente (parser, resiliencia, telemetría, gate de evals).
 
 | Proyecto | Cubre |
 |---|---|
 | Core | `EntityId`, `ContentDatabase`, `EditableSchema` (inferencia de `FieldKind`, rango, referencias, cache), `ReferenceGraph`, `ContentCloner` |
 | Application | `UndoStack` + coalescing, `SetFieldValueAction`, `Add/RemoveEntitiesAction`, `ContentValidator` (rango / requerido / referencia rota / cadena de mejora / ciclos) |
-| Infrastructure | round-trip JSON, polimorfismo `$type`, tipo desconocido, PascalCase de un modelo, importador CSV (mapeo por nombre/etiqueta, comillas, errores con línea), `ContentAssistant` (parseo, fences, entidades inválidas) |
+| Application | (…) + `PromptLibrary` / `PromptTemplate` (carga de recursos, resolución por id/familia, render), `ChatTokens` / `ModelPricing` (estimación de tokens y costo) |
+| Infrastructure | round-trip JSON, polimorfismo `$type`, tipo desconocido, PascalCase de un modelo, importador CSV (mapeo por nombre/etiqueta, comillas, errores con línea), `ContentAssistant` (parseo, fences, entidades inválidas, versión de prompt), `ResilientChatCompletion` (passthrough, reintentos, fallback, fallo total, costo por proveedor, listener que lanza), `ChatCallLog` (ring buffer, JSON Lines, ruta inválida) |
 | Presentation | `MainViewModel` (árbol, selección, dirty por profundidad de pila, guardado + "guardar como" del ejemplo, undo/redo, filtro, new/duplicate/delete, panel de validación, navegación a un issue, aplicar propuesta de IA, tema), `InspectorViewModel`, `AssistantViewModel` (habilitación, propuesta, acciones rápidas, errores). Sin runner de WPF gracias al split de assemblies |
+| Evals | Gate: cada caso del catálogo contra su fixture grabado alcanza su umbral de pass rate; el run completo produce reporte Markdown/JSON |
 
 ## Fuera de alcance
 
