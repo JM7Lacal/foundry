@@ -85,7 +85,7 @@ public partial class App : System.Windows.Application
                 .AddEnvironmentVariables())
             .ConfigureServices((context, services) =>
             {
-                services.AddFoundryApplication();
+                services.AddFoundryApplication(context.Configuration["Assistant:PromptVersion"]);
                 services.AddFoundryInfrastructure();
                 services.AddFoundryPresentation();
 

@@ -72,6 +72,19 @@ public class ContentAssistantTests
         await act.Should().ThrowAsync<Exception>();
     }
 
+    [Fact]
+    public async Task The_result_carries_the_prompt_version_that_produced_it()
+    {
+        var pinned = new ContentAssistant(
+            new ScriptedChat("""{ "answer": "ok" }"""),
+            new JsonContentSerializer(),
+            Foundry.Application.Ai.PromptLibrary.Default,
+            "assistant-system@v1");
+
+        pinned.PromptId.Should().Be("assistant-system@v1");
+        (await pinned.AskAsync("hola", Db())).PromptId.Should().Be("assistant-system@v1");
+    }
+
     private sealed class ScriptedChat : IChatCompletion
     {
         private readonly string _reply;

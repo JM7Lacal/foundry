@@ -15,4 +15,9 @@
     <ProjectReference Include="..\Foundry.Core\Foundry.Core.csproj" />
   </ItemGroup>
 
+  <!-- Los system prompts viven en el repo como texto versionado y viajan incrustados en el dll. -->
+  <ItemGroup>
+    <EmbeddedResource Include="Ai\Prompts\*.txt" />
+  </ItemGroup>
+
 </Project>

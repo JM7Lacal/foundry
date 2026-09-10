@@ -7,8 +7,15 @@ using Foundry.Core.Editing;
 
 namespace Foundry.Application.Ai;
 
-/// <summary>Lo que devuelve el asistente: una respuesta de texto y/o entidades propuestas.</summary>
-public sealed record AssistantResult(string? Answer, string? Rationale, IReadOnlyList<ContentEntity> ProposedEntities)
+/// <summary>
+/// Lo que devuelve el asistente: una respuesta de texto y/o entidades propuestas. <c>PromptId</c>
+/// identifica la version de system prompt que produjo la respuesta (para evals y trazas).
+/// </summary>
+public sealed record AssistantResult(
+    string? Answer,
+    string? Rationale,
+    IReadOnlyList<ContentEntity> ProposedEntities,
+    string PromptId = "")
 {
     public bool HasProposal => ProposedEntities.Count > 0;
 }
@@ -22,14 +29,29 @@ public sealed class ContentAssistant
 {
     private readonly IChatCompletion _chat;
     private readonly IContentSerializer _serializer;
+    private readonly PromptTemplate _systemPrompt;
 
-    public ContentAssistant(IChatCompletion chat, IContentSerializer serializer)
+    /// <summary>
+    /// <paramref name="prompts"/>: biblioteca de system prompts (por defecto la incrustada).
+    /// <paramref name="promptVersion"/>: id (<c>assistant-system@v1</c>) o familia
+    /// (<c>assistant-system</c> → ultima); por defecto, la ultima.
+    /// </summary>
+    public ContentAssistant(
+        IChatCompletion chat,
+        IContentSerializer serializer,
+        PromptLibrary? prompts = null,
+        string? promptVersion = null)
     {
         _chat = chat;
         _serializer = serializer;
+        _systemPrompt = (prompts ?? PromptLibrary.Default)
+            .Resolve(string.IsNullOrWhiteSpace(promptVersion) ? "assistant-system" : promptVersion);
     }
 
     public string ProviderName => _chat.Name;
+
+    /// <summary>Id de la version de system prompt en uso (p. ej. <c>assistant-system@v2</c>).</summary>
+    public string PromptId => _systemPrompt.Id;
 
     public async Task<AssistantResult> AskAsync(string request, ContentDatabase database, CancellationToken cancellationToken = default)
     {
@@ -46,23 +68,11 @@ public sealed class ContentAssistant
         return Parse(raw);
     }
 
-    private static string SystemPrompt() =>
-        $$"""
-        Sos un asistente de diseño de un juego tower-defense. Ayudás a crear y revisar contenido.
-
-        Tipos de entidad y campos editables:
-        {{SchemaDescription.ForPrompt()}}
-
-        Respondé SIEMPRE con un unico objeto JSON, sin texto fuera de el, con esta forma:
+    private string SystemPrompt() =>
+        _systemPrompt.Render(new Dictionary<string, string>(StringComparer.Ordinal)
         {
-          "rationale": "explicacion breve de lo que hiciste (opcional)",
-          "answer": "respuesta en texto si la consulta no requiere crear entidades (opcional)",
-          "entities": [ { "$type": "troop", "id": "troop.xxx", "name": "...", "cost": 120, "damage": 18 } ]
-        }
-        Reglas: los nombres de campo van en camelCase, tal como aparecen arriba. Usá "entities" solo
-        cuando crees o modifiques contenido. Los id van en minuscula con puntos (ej. "troop.spearman").
-        Respetá los rangos de cada campo.
-        """;
+            ["schema"] = SchemaDescription.ForPrompt(),
+        });
 
     private static string UserPrompt(string request, ContentDatabase database)
     {
@@ -132,7 +142,7 @@ public sealed class ContentAssistant
             answer = raw.Trim();
         }
 
-        return new AssistantResult(answer, rationale, entities);
+        return new AssistantResult(answer, rationale, entities, _systemPrompt.Id);
     }
 
     private static bool HasEntities(string json)
