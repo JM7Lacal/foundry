@@ -1,30 +1,35 @@
 # Foundry
 
-Herramienta de escritorio (**WPF / .NET 8**) para editar y validar el contenido de un juego
-tower-defense — tropas, torres, enemigos, cadenas de mejora — antes de exportarlo al JSON que
-consume el juego.
+Desktop tool (**WPF / .NET 8**) for editing and validating the content of a tower-defense game —
+troops, towers, enemies, upgrade chains — before exporting it to the JSON the game consumes.
 
-El porqué de cada decisión de diseño está en [`docs/adr`](docs/adr).
+What it demonstrates: clean architecture with real MVVM, reflection-driven UI, undo/redo, two-layer
+validation, and an LLM assistant behind a swappable provider with retries, fallback, telemetry,
+versioned prompts and an evaluation harness gated in CI.
 
-## El problema
+The reasoning behind each design decision is in [`docs/adr`](docs/adr) (written in Spanish).
 
-En un F2P los diseñadores balancean números todo el día — costos, daño, vida, curvas de mejora —
-y normalmente lo hacen en planillas que después alguien convierte al formato del juego a mano.
-Los errores que se cuelan (un costo negativo, una referencia a una entidad que no existe, un valor
-fuera del rango que el engine tolera, una "mejora" que es peor que la unidad base) **rompen el
-build del juego** o, peor, pasan silenciosamente al balance.
+## The problem
 
-Foundry se mete en el medio: los diseñadores editan cada entidad en un formulario, ven en vivo el
-JSON que se va a guardar, y hay validación de todo el game data en un panel siempre visible más un
-chequeo completo antes de cerrar.
+In a free-to-play game, designers balance numbers all day — costs, damage, health, upgrade
+curves — usually in spreadsheets that someone later converts to the game's format by hand. The
+errors that slip through (a negative cost, a reference to an entity that doesn't exist, a value
+outside the range the engine tolerates, an "upgrade" that is worse than the base unit) **break the
+game build** or, worse, silently make it into the balance.
+
+Foundry sits in between: designers edit each entity in a form, see the JSON that will be saved in
+real time, and the whole game data is validated in an always-visible panel plus a full check before
+closing.
 
 ## Screenshots
 
-| Editor + Inspector | Validación del game data | Asistente con IA |
+| Editor + Inspector | Game data validation | AI assistant |
 |---|---|---|
-| ![Árbol de contenido, Inspector generado por reflexión y preview JSON](docs/img/01-inspector.png) | ![Panel de validación abierto con un aviso de balance y el badge en el árbol](docs/img/02-validacion.png) | ![Pestaña Asistente: proveedor claude-code analizando el balance](docs/img/03-asistente.png) |
+| ![Content tree, reflection-generated Inspector and JSON preview](docs/img/01-inspector.png) | ![Validation panel open with a balance warning and the badge in the tree](docs/img/02-validacion.png) | ![Assistant tab: claude-code provider analyzing balance](docs/img/03-asistente.png) |
 
-## Correr
+The app UI is in Spanish.
+
+## Running it
 
 ```bash
 dotnet build
@@ -32,55 +37,55 @@ dotnet test
 dotnet run --project src/Foundry.App
 ```
 
-Requiere el **.NET 8 SDK**; para desarrollo, Visual Studio 2026 Community con el workload
-".NET desktop development". En el primer arranque copia
-[`Samples/tower-defense.json`](src/Foundry.App/Samples/tower-defense.json) (12 entidades, con un
-"typo" a propósito que la validación detecta) a `Documentos\Foundry\` y lo abre desde ahí. Hay un
-[`Samples/extra-troops.csv`](src/Foundry.App/Samples/extra-troops.csv) para probar el importador.
+Requires the **.NET 8 SDK**; for development, Visual Studio 2026 Community with the ".NET desktop
+development" workload. On first launch it copies
+[`Samples/tower-defense.json`](src/Foundry.App/Samples/tower-defense.json) (12 entities, with a
+deliberate "typo" that validation catches) to `Documents\Foundry\` and opens it from there. There is
+also a [`Samples/extra-troops.csv`](src/Foundry.App/Samples/extra-troops.csv) to try the importer.
 
-Para el asistente con IA, ver [ADR 0011](docs/adr/0011-asistente-ia.md): por defecto usa un
-proveedor `stub` (sin setup ni credenciales); se cambia a `claude-code` / `anthropic` / `ollama`
-en `appsettings.json` (o en `appsettings.Local.json`, ignorado por git, ver
-[`appsettings.Local.json.example`](src/Foundry.App/appsettings.Local.json.example)). El repo no
-lleva ninguna API key: `claude-code` usa la sesión local del CLI y `anthropic` toma la key de
-`appsettings.Local.json` o de la variable de entorno `Assistant__ApiKey`.
+For the AI assistant, see [ADR 0011](docs/adr/0011-asistente-ia.md): by default it uses a `stub`
+provider (no setup or credentials); switch to `claude-code` / `anthropic` / `ollama` / `azure` in
+`appsettings.json` (or in `appsettings.Local.json`, ignored by git — see
+[`appsettings.Local.json.example`](src/Foundry.App/appsettings.Local.json.example)). The repo
+contains no API keys: `claude-code` uses the local CLI session, and `anthropic` / `azure` read the
+key from `appsettings.Local.json` or from the `Assistant__ApiKey` environment variable.
 
-## Qué hace
+## Features
 
-- **Árbol de contenido** por categoría, con filtro por nombre o id y contador por categoría.
-- **Inspector generado por reflexión**: al seleccionar una entidad arma el formulario solo —
-  cuadros de texto, deslizadores con rango, combos de enum, selector de referencias.
-- **Crear / duplicar / eliminar** entidades a mano (menú *Editar*, Ctrl+D, Supr). Eliminar avisa
-  si algo la referencia.
-- **Undo / redo** (Ctrl+Z / Ctrl+Y) sobre toda edición, con *coalescing* (arrastrar un slider = un
-  solo paso).
-- **Validación en dos capas**: por campo mientras editás (borde rojo + motivo), y del game data
-  completo en un **panel siempre visible** — rangos, requeridos, referencias rotas, coherencia de
-  cadenas de mejora, ciclos. Un click en un problema lleva a la entidad. Al cerrar corre el
-  chequeo completo y avisa si hay errores o cambios sin guardar.
-- **Preview JSON en vivo** de la entidad — exactamente lo que se guarda en disco.
-- **"Usado por"**: qué entidades referencian a la seleccionada, antes de borrar o renombrar.
-- **Importar CSV**: trae entidades de una planilla mapeando columnas al esquema.
-- **Asistente con IA**: acciones concretas sobre la entidad abierta ("Analizar", "Cadena de
-  mejora", "¿Balance?") o texto libre. El modelo **propone** entidades; el usuario las revisa y
-  las aplica con undo. Proveedor intercambiable por config (stub / claude-code / anthropic /
-  ollama / **Azure OpenAI · Azure AI Foundry**), con **reintentos + backoff + fallback** y una
-  traza por llamada (latencia, tokens y costo estimados). System prompts **versionados** y un
-  **harness de evals** con gate de CI — ver [abajo](#el-asistente-prompts-resiliencia-y-evals).
-- **Edición libre, guardado explícito**: editás y navegás sin fricción; `Guardar` (Ctrl+S)
-  escribe todo el documento. No bloquea por errores de validación (deja guardar trabajo en curso;
-  el chequeo duro es al cerrar). `*` en el título mientras hay cambios sin guardar.
-- **Recientes** (menú *Archivo*) y **tema claro / oscuro** con toggle en vivo.
+- **Content tree** by category, with filtering by name or id and a per-category count.
+- **Reflection-generated Inspector**: selecting an entity builds its form automatically — text
+  boxes, ranged sliders, enum combos, reference pickers.
+- **Create / duplicate / delete** entities by hand (*Edit* menu, Ctrl+D, Del). Deleting warns if
+  something references the entity.
+- **Undo / redo** (Ctrl+Z / Ctrl+Y) over every edit, with *coalescing* (dragging a slider = a single
+  step).
+- **Two-layer validation**: per field while editing (red border + reason), and over the whole game
+  data in an **always-visible panel** — ranges, required fields, broken references, upgrade-chain
+  consistency, cycles. Clicking an issue navigates to the entity. On close, the full check runs and
+  warns about errors or unsaved changes.
+- **Live JSON preview** of the entity — exactly what gets written to disk.
+- **"Used by"**: which entities reference the selected one, before deleting or renaming it.
+- **CSV import**: brings entities in from a spreadsheet, mapping columns to the schema.
+- **AI assistant**: concrete actions on the open entity ("Analyze", "Upgrade chain", "Balance?")
+  or free text. The model **proposes** entities; the user reviews them and applies them with undo.
+  Provider swappable via config (stub / claude-code / anthropic / ollama /
+  **Azure OpenAI · Azure AI Foundry**), with **retries + backoff + fallback** and a per-call trace
+  (latency, estimated tokens and cost). **Versioned** system prompts and an **evaluation harness**
+  gated in CI — see [below](#the-assistant-prompts-resilience-and-evals).
+- **Free editing, explicit save**: edit and navigate without friction; `Save` (Ctrl+S) writes the
+  whole document. Validation errors don't block saving (work in progress can be saved; the hard
+  check happens on close). `*` in the title while there are unsaved changes.
+- **Recent files** (*File* menu) and **light / dark theme** with a live toggle.
 
-## Arquitectura
+## Architecture
 
 ```mermaid
 flowchart LR
     App["Foundry.App<br/>WPF: Views, Converters,<br/>Behaviors, composition root"]
-    Pres["Foundry.Presentation<br/>ViewModels (sin WPF)"]
-    Infra["Foundry.Infrastructure<br/>JSON repo/serializer,<br/>CSV importer, proveedores IA"]
-    Appl["Foundry.Application<br/>puertos + casos de uso:<br/>IContentRepository, IChatCompletion,<br/>UndoStack, ContentValidator, ContentAssistant"]
-    Core["Foundry.Core<br/>entidades, EntityId,<br/>EditableSchema, ReferenceGraph"]
+    Pres["Foundry.Presentation<br/>ViewModels (no WPF)"]
+    Infra["Foundry.Infrastructure<br/>JSON repo/serializer,<br/>CSV importer, AI providers"]
+    Appl["Foundry.Application<br/>ports + use cases:<br/>IContentRepository, IChatCompletion,<br/>UndoStack, ContentValidator, ContentAssistant"]
+    Core["Foundry.Core<br/>entities, EntityId,<br/>EditableSchema, ReferenceGraph"]
 
     App --> Pres
     App --> Infra
@@ -89,55 +94,54 @@ flowchart LR
     Appl --> Core
 ```
 
-Las dependencias apuntan hacia adentro. `Core` no referencia a nadie, así que la lógica de dominio
-se testea sin instanciar una ventana ni tocar el disco. `Application` define interfaces que
-`Infrastructure` implementa: la capa de casos de uso no sabe que la persistencia es JSON. Los
-ViewModels viven en `Foundry.Presentation`, sin referencia a WPF, y corren en un runner de consola
-normal. El límite lo fuerzan las referencias entre proyectos: MSBuild no deja referencias
-circulares ni saltos de capa.
+Dependencies point inward. `Core` references nothing, so domain logic is tested without creating a
+window or touching the disk. `Application` defines interfaces that `Infrastructure` implements: the
+use-case layer doesn't know persistence is JSON. ViewModels live in `Foundry.Presentation`, with no
+reference to WPF, and run under a plain console test runner. Project references enforce the
+boundaries: MSBuild allows neither circular references nor layer skipping.
 
 ```
 Foundry.sln
 ├── src/
-│   ├── Foundry.Core            Dominio: ContentEntity + Troop/Tower/Enemy, EntityId,
-│   │                           EditableSchema (reflexión), ReferenceGraph, ContentEntityCatalog,
+│   ├── Foundry.Core            Domain: ContentEntity + Troop/Tower/Enemy, EntityId,
+│   │                           EditableSchema (reflection), ReferenceGraph, ContentEntityCatalog,
 │   │                           ContentCloner.
-│   ├── Foundry.Application     Puertos y casos de uso: IContentRepository, IContentSerializer,
+│   ├── Foundry.Application     Ports and use cases: IContentRepository, IContentSerializer,
 │   │                           IContentImporter, IChatCompletion, ContentAssistant, ContentValidator,
-│   │                           UndoStack + acciones (SetFieldValue, AddEntities, RemoveEntities).
-│   ├── Foundry.Infrastructure  JSON repo/serializer (polimórficos), CsvContentImporter,
-│   │                           proveedores IChatCompletion (stub / anthropic / ollama / claude-code
-│   │                           / azure), ResilientChatCompletion (reintentos + fallback + traza),
+│   │                           UndoStack + actions (SetFieldValue, AddEntities, RemoveEntities).
+│   ├── Foundry.Infrastructure  Polymorphic JSON repo/serializer, CsvContentImporter,
+│   │                           IChatCompletion providers (stub / anthropic / ollama / claude-code
+│   │                           / azure), ResilientChatCompletion (retries + fallback + trace),
 │   │                           ChatCallLog.
 │   ├── Foundry.Presentation    MainViewModel, InspectorViewModel, AssistantViewModel, field VMs.
 │   ├── Foundry.App             MainWindow, InspectorView, AssistantView, converters, behaviors,
-│   │                           tema, appsettings.json, App.xaml.cs (arma la pila del asistente).
-│   └── Foundry.Evals           Harness de evaluación del asistente: casos, EvalRunner, Expect,
-│                               fixtures grabados, reporte. Ejecutable + gate en tests/.
+│   │                           theme, appsettings.json, App.xaml.cs (wires the assistant stack).
+│   └── Foundry.Evals           Assistant evaluation harness: cases, EvalRunner, Expect,
+│                               recorded fixtures, report. Executable + gate in tests/.
 └── tests/                      Core / Application / Infrastructure / Presentation / Evals .Tests
 ```
 
-### Decisiones (ADRs)
+### Decisions (ADRs, in Spanish)
 
-| # | Decisión |
+| # | Decision |
 |---|---|
-| [0001](docs/adr/0001-clean-architecture-cuatro-proyectos.md) | Clean architecture, Infrastructure como proyecto aparte |
-| [0002](docs/adr/0002-mvvm-community-toolkit.md) | MVVM con `CommunityToolkit.Mvvm` (source generators) |
-| [0003](docs/adr/0003-composicion-generic-host-di.md) | Composición con Generic Host + `Microsoft.Extensions.DependencyInjection` |
-| [0004](docs/adr/0004-fluentassertions-7.md) | `FluentAssertions` fijado en 7.2.0 (8.x pasa a licencia paga) |
-| [0005](docs/adr/0005-tooling-cpm-analyzers.md) | Central Package Management + analyzers + warnings como errores + C# 12 |
-| [0006](docs/adr/0006-json-polimorfico-dominio-limpio.md) | JSON polimórfico sin ensuciar el dominio con atributos |
-| [0007](docs/adr/0007-viewmodels-sin-wpf.md) | ViewModels sin WPF; templates implícitos vs `DataTemplateSelector` |
-| [0008](docs/adr/0008-undo-redo-y-validacion.md) | Undo/redo (command pattern, coalescing) y validación en dos capas |
-| [0009](docs/adr/0009-importadores.md) | `IContentImporter` + CSV dirigido por esquema |
-| [0010](docs/adr/0010-theming.md) | Theming: sistema de paleta con Light/Dark en runtime (`ResourceDictionary` + `DynamicResource`) |
-| [0011](docs/adr/0011-asistente-ia.md) | Asistente con IA: puerto `IChatCompletion` + proveedor elegido por config |
-| [0012](docs/adr/0012-proyecto-multi-archivo.md) | Un archivo por ahora; proyecto multi-archivo pendiente |
-| [0013](docs/adr/0013-evals-observabilidad-y-prompts.md) | Evals + gate de CI, resiliencia/telemetría de las llamadas, prompts versionados |
+| [0001](docs/adr/0001-clean-architecture-cuatro-proyectos.md) | Clean architecture, Infrastructure as a separate project |
+| [0002](docs/adr/0002-mvvm-community-toolkit.md) | MVVM with `CommunityToolkit.Mvvm` (source generators) |
+| [0003](docs/adr/0003-composicion-generic-host-di.md) | Composition with Generic Host + `Microsoft.Extensions.DependencyInjection` |
+| [0004](docs/adr/0004-fluentassertions-7.md) | `FluentAssertions` pinned to 7.2.0 (8.x moves to a paid license) |
+| [0005](docs/adr/0005-tooling-cpm-analyzers.md) | Central Package Management + analyzers + warnings as errors + C# 12 |
+| [0006](docs/adr/0006-json-polimorfico-dominio-limpio.md) | Polymorphic JSON without polluting the domain with attributes |
+| [0007](docs/adr/0007-viewmodels-sin-wpf.md) | ViewModels without WPF; implicit templates vs `DataTemplateSelector` |
+| [0008](docs/adr/0008-undo-redo-y-validacion.md) | Undo/redo (command pattern, coalescing) and two-layer validation |
+| [0009](docs/adr/0009-importadores.md) | `IContentImporter` + schema-driven CSV |
+| [0010](docs/adr/0010-theming.md) | Theming: palette system with runtime Light/Dark (`ResourceDictionary` + `DynamicResource`) |
+| [0011](docs/adr/0011-asistente-ia.md) | AI assistant: `IChatCompletion` port + provider chosen by config |
+| [0012](docs/adr/0012-proyecto-multi-archivo.md) | One file for now; multi-file project pending |
+| [0013](docs/adr/0013-evals-observabilidad-y-prompts.md) | Evals + CI gate, call resilience/telemetry, versioned prompts |
 
-## El Inspector por reflexión
+## The reflection-driven Inspector
 
-En lugar de escribir un formulario por tipo de entidad, las entidades se anotan:
+Instead of writing one form per entity type, entities are annotated:
 
 ```csharp
 [EditableProperty(Label = "Daño", Group = "Combate", Order = 0, Progression = true)]
@@ -149,98 +153,99 @@ public int Damage { get; set; }
 public EntityId? UpgradesInto { get; set; }
 ```
 
-`EditableSchema.For(type)` reflexiona una vez por tipo (cacheado) y produce `EditableField`s con
-etiqueta, grupo, orden, `FieldKind`, rango y tipo referenciado. `InspectorViewModel` la recorre y
-crea un `PropertyFieldViewModel` por campo; cada subtipo tiene su `DataTemplate` implícito en
-`InspectorView.xaml`. El getter lee de la entidad; el setter encola un `SetFieldValueAction` en el
-`UndoStack`. `Progression = true` marca los stats que la validación exige que mejoren a lo largo de
-una cadena de mejora.
+`EditableSchema.For(type)` reflects once per type (cached) and produces `EditableField`s with
+label, group, order, `FieldKind`, range and referenced type. `InspectorViewModel` walks it and
+creates a `PropertyFieldViewModel` per field; each subtype has its implicit `DataTemplate` in
+`InspectorView.xaml`. The getter reads from the entity; the setter pushes a `SetFieldValueAction`
+onto the `UndoStack`. `Progression = true` marks the stats that validation requires to improve
+along an upgrade chain.
 
-### Agregar una entidad nueva
+### Adding a new entity
 
-1. Escribir la clase: `public sealed class Trap : ContentEntity`.
+1. Write the class: `public sealed class Trap : ContentEntity`.
 2. `override CategoryName => "Trampas";`
-3. Anotar sus propiedades con `[EditableProperty]` / `[Range]` / `[AssetReference]`.
+3. Annotate its properties with `[EditableProperty]` / `[Range]` / `[AssetReference]`.
 
-Con eso, el árbol la agrupa, el Inspector le arma el formulario, y la serialización JSON, el
-importador CSV, el menú *Nueva entidad* y el prompt del asistente la reconocen por reflexión
-(`ContentEntityCatalog` + `SchemaDescription`). No hay que tocar UI, serialización ni ningún
-registro manual.
+That's it: the tree groups it, the Inspector builds its form, and JSON serialization, the CSV
+importer, the *New entity* menu and the assistant's prompt all pick it up through reflection
+(`ContentEntityCatalog` + `SchemaDescription`). No UI, serialization or manual registration changes
+needed.
 
-## El asistente: prompts, resiliencia y evals
+## The assistant: prompts, resilience and evals
 
-El [ADR 0013](docs/adr/0013-evals-observabilidad-y-prompts.md) tiene el detalle. En corto:
+[ADR 0013](docs/adr/0013-evals-observabilidad-y-prompts.md) has the details. In short:
 
-**System prompts versionados.** Salen del código y viven como recursos en
-`src/Foundry.Application/Ai/Prompts/assistant-system.v{N}.txt`, con marcadores `{schema}` que se
-completan en runtime. `ContentAssistant` recibe la versión a usar (`Assistant:PromptVersion`, id o
-familia → última) y la propaga en `AssistantResult.PromptId`. `v2` es más estricto que `v1`
-(JSON-only, "no inventes campos", few-shot); el harness mide una contra otra.
+**Versioned system prompts.** They live outside the code as resources in
+`src/Foundry.Application/Ai/Prompts/assistant-system.v{N}.txt`, with `{schema}` placeholders filled
+at runtime. `ContentAssistant` receives the version to use (`Assistant:PromptVersion`, id or
+family → latest) and propagates it in `AssistantResult.PromptId`. `v2` is stricter than `v1`
+(JSON-only, "don't invent fields", few-shot); the harness measures one against the other.
 
-**Resiliencia + telemetría.** `ResilientChatCompletion` envuelve a cualquier proveedor y agrega,
-sin que el resto de la app se entere: reintentos con backoff exponencial, fallback a un segundo
-proveedor (`Assistant:Fallback`), y una `ChatCallReport` por llamada — proveedor, duración,
-intentos, tokens y costo estimados. `ChatCallLog` la guarda en memoria y como JSON Lines en
-`%APPDATA%\Foundry\chat-calls.jsonl`. Es el único `IChatCompletion` que ve la app; el proveedor
-crudo (incluido el de **Azure OpenAI / Azure AI Foundry**) queda detrás.
+**Resilience + telemetry.** `ResilientChatCompletion` wraps any provider and adds, without the rest
+of the app noticing: retries with exponential backoff, fallback to a second provider
+(`Assistant:Fallback`), and one `ChatCallReport` per call — provider, duration, attempts,
+estimated tokens and cost. `ChatCallLog` keeps it in memory and as JSON Lines in
+`%APPDATA%\Foundry\chat-calls.jsonl`. It is the only `IChatCompletion` the app sees; the raw
+provider (including **Azure OpenAI / Azure AI Foundry**) sits behind it.
 
-**Harness de evals.** `Foundry.Evals` corre casos contra la misma pila que la app:
+**Evaluation harness.** `Foundry.Evals` runs cases against the same stack as the app:
 
 ```
-dotnet run --project src/Foundry.Evals -- run                       # fixtures grabados (lo del gate)
+dotnet run --project src/Foundry.Evals -- run                       # recorded fixtures (what the gate uses)
 dotnet run --project src/Foundry.Evals -- run --provider claude-code --prompt assistant-system@v2 --reps 5
-dotnet run --project src/Foundry.Evals -- record --provider claude-code   # regenera fixtures
+dotnet run --project src/Foundry.Evals -- record --provider claude-code   # regenerate fixtures
 ```
 
-Cada `EvalCase` fija un pedido, la base de la que parte y afirmaciones deterministas (`Expect.*`:
-propone / no propone, entidades válidas vía `ContentValidator`, id en convención, campo en rango,
-mantiene el id al modificar, respuesta JSON-only, latencia y costo bajo umbral). Cada caso se
-corre N veces y **pasa si su pass rate ≥ umbral** — la no-determinación está en el modelo, no en
-la verificación. El gate de CI (`Foundry.Evals.Tests`, dentro de `dotnet test`) usa `RecordedChat`
-con respuestas grabadas: determinista y sin red, detecta regresiones de parser / esquema / prompt.
-`azure-pipelines.yml` corre el gate y publica el reporte (`EvalReportRenderer` → Markdown + JSON);
-el stage `evals_live` pega contra un modelo real con un secret.
+Each `EvalCase` defines a request, the starting data and deterministic assertions (`Expect.*`:
+proposes / doesn't propose, valid entities via `ContentValidator`, id follows convention, field in
+range, keeps the id when modifying, JSON-only response, latency and cost under threshold). Each case
+runs N times and **passes if its pass rate ≥ threshold** — the non-determinism is in the model, not
+in the verification. The CI gate (`Foundry.Evals.Tests`, part of `dotnet test`) uses `RecordedChat`
+with recorded responses: deterministic and offline, it catches parser / schema / prompt
+regressions. `azure-pipelines.yml` runs the gate and publishes the report (`EvalReportRenderer` →
+Markdown + JSON); the `evals_live` stage hits a real model using a secret.
 
 ## Testing
 
-`xUnit` + `FluentAssertions`. 122 tests, sobre todo de la lógica de validación, undo/redo, el
-schema por reflexión y el asistente (parser, resiliencia, telemetría, gate de evals).
+`xUnit` + `FluentAssertions`. 122 tests, mostly covering validation logic, undo/redo, the
+reflection schema and the assistant (parser, resilience, telemetry, evals gate).
 
-| Proyecto | Cubre |
+| Project | Covers |
 |---|---|
-| Core | `EntityId`, `ContentDatabase`, `EditableSchema` (inferencia de `FieldKind`, rango, referencias, cache), `ReferenceGraph`, `ContentCloner` |
-| Application | `UndoStack` + coalescing, `SetFieldValueAction`, `Add/RemoveEntitiesAction`, `ContentValidator` (rango / requerido / referencia rota / cadena de mejora / ciclos) |
-| Application | (…) + `PromptLibrary` / `PromptTemplate` (carga de recursos, resolución por id/familia, render), `ChatTokens` / `ModelPricing` (estimación de tokens y costo) |
-| Infrastructure | round-trip JSON, polimorfismo `$type`, tipo desconocido, PascalCase de un modelo, importador CSV (mapeo por nombre/etiqueta, comillas, errores con línea), `ContentAssistant` (parseo, fences, entidades inválidas, versión de prompt), `ResilientChatCompletion` (passthrough, reintentos, fallback, fallo total, costo por proveedor, listener que lanza), `ChatCallLog` (ring buffer, JSON Lines, ruta inválida) |
-| Presentation | `MainViewModel` (árbol, selección, dirty por profundidad de pila, guardado + "guardar como" del ejemplo, undo/redo, filtro, new/duplicate/delete, panel de validación, navegación a un issue, aplicar propuesta de IA, tema), `InspectorViewModel`, `AssistantViewModel` (habilitación, propuesta, acciones rápidas, errores). Sin runner de WPF gracias al split de assemblies |
-| Evals | Gate: cada caso del catálogo contra su fixture grabado alcanza su umbral de pass rate; el run completo produce reporte Markdown/JSON |
+| Core | `EntityId`, `ContentDatabase`, `EditableSchema` (`FieldKind` inference, range, references, cache), `ReferenceGraph`, `ContentCloner` |
+| Application | `UndoStack` + coalescing, `SetFieldValueAction`, `Add/RemoveEntitiesAction`, `ContentValidator` (range / required / broken reference / upgrade chain / cycles) |
+| Application | (…) + `PromptLibrary` / `PromptTemplate` (resource loading, resolution by id/family, rendering), `ChatTokens` / `ModelPricing` (token and cost estimation) |
+| Infrastructure | JSON round-trip, `$type` polymorphism, unknown type, PascalCase from a model, CSV importer (mapping by name/label, quotes, errors with line number), `ContentAssistant` (parsing, fences, invalid entities, prompt version), `ResilientChatCompletion` (passthrough, retries, fallback, total failure, per-provider cost, throwing listener), `ChatCallLog` (ring buffer, JSON Lines, invalid path) |
+| Presentation | `MainViewModel` (tree, selection, dirty by stack depth, save + "save as" for the sample, undo/redo, filter, new/duplicate/delete, validation panel, navigating to an issue, applying an AI proposal, theme), `InspectorViewModel`, `AssistantViewModel` (enablement, proposal, quick actions, errors). No WPF runner needed thanks to the assembly split |
+| Evals | Gate: every case in the catalog reaches its pass-rate threshold against its recorded fixture; the full run produces a Markdown/JSON report |
 
-## Fuera de alcance
+## Out of scope
 
-- **Editor de grafo** (diálogos / skill trees con nodos): mucho rendering custom para poco a
-  cambio en un proyecto de este tamaño.
-- **Librería de UI de terceros** (MahApps, Material, etc.): el tema y los `ControlTemplate` se
-  hacen a mano con `ResourceDictionary` ([ADR 0010](docs/adr/0010-theming.md)).
-- **`DataTemplateSelector`**: los templates de campo se eligen por tipo de ViewModel, no por un
-  valor en runtime; para eso alcanzan los templates implícitos.
-- **Integración con Perforce / pipeline de build real**: queda como extensión.
+- **Graph editor** (dialogues / skill trees with nodes): a lot of custom rendering for little gain
+  in a project this size.
+- **Third-party UI library** (MahApps, Material, etc.): the theme and `ControlTemplate`s are
+  hand-made with `ResourceDictionary` ([ADR 0010](docs/adr/0010-theming.md)).
+- **`DataTemplateSelector`**: field templates are chosen by ViewModel type, not by a runtime value;
+  implicit templates are enough for that.
+- **Perforce / real build pipeline integration**: left as an extension.
 
-## Qué haría después
+## What I'd do next
 
-- **Concepto de proyecto** ([ADR 0012](docs/adr/0012-proyecto-multi-archivo.md)): hoy se edita
-  **un archivo** = un juego. Para varios juegos, o para contenido de un juego partido en varios
-  archivos, haría falta un `game.foundryproj` + un selector de proyectos recientes. El cambio duro
-  es que `MainViewModel` asume "un archivo abierto".
-- **Importación CSV undoable**: reusar `AddEntitiesAction` (hoy la importación limpia el historial).
-- **`Exportar` con gate duro**: separar "guardar" (siempre) de "exportar al juego" (bloquea si
-  hay errores). Hoy el chequeo duro es solo un aviso al cerrar ([ADR 0008](docs/adr/0008-undo-redo-y-validacion.md)).
-- **Workflow de guardado por entidad**: prototipo en la rama `save-workflow-wip` (transacción por
-  entidad, revertir al cambiar de selección) — se pausó por ser un modelo mental poco intuitivo.
-- **Streaming** en el asistente y few-shot examples en el prompt para modelos chicos.
-- **Fine-tuning** de un modelo local con el contenido ya balanceado del estudio.
-- **Empaquetado**: MSIX + auto-update para distribuir la herramienta al equipo.
+- **Project concept** ([ADR 0012](docs/adr/0012-proyecto-multi-archivo.md)): today you edit
+  **one file** = one game. For several games, or one game's content split across files, it would
+  need a `game.foundryproj` + a recent-projects picker. The hard part is that `MainViewModel`
+  assumes "one open file".
+- **Undoable CSV import**: reuse `AddEntitiesAction` (today importing clears the history).
+- **`Export` with a hard gate**: separate "save" (always allowed) from "export to the game" (blocked
+  on errors). Today the hard check is only a warning on close
+  ([ADR 0008](docs/adr/0008-undo-redo-y-validacion.md)).
+- **Per-entity save workflow**: prototyped on the `save-workflow-wip` branch (transaction per
+  entity, revert on selection change) — paused because the mental model was unintuitive.
+- **Streaming** in the assistant and few-shot examples in the prompt for small models.
+- **Fine-tuning** a local model on the studio's already-balanced content.
+- **Packaging**: MSIX + auto-update to distribute the tool to the team.
 
-## Licencia
+## License
 
-Proyecto personal de Juan Martín Lacal de Castro, publicado sólo para evaluación. Ver
+Personal project by Juan Martín Lacal de Castro, published for evaluation purposes only. See
 [`LICENSE`](LICENSE).
